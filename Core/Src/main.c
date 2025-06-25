@@ -132,7 +132,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
+nop_party
     /* USER CODE BEGIN 3 */
       if (calibration_mode) {
           calibrate_adc_values();  // min/max 更新
