@@ -223,7 +223,7 @@ void apply_calibration(uint32_t raw[], uint16_t scaled[]) {
             int32_t norm = (int32_t)raw[i] - (int32_t)white_ref[i];
             if (norm < 0) norm = 0;
             if (norm > diff) norm = diff;
-            scaled[i] = (uint16_t)(norm * 1023 / diff);
+            scaled[i] = (uint16_t)((diff - norm) * 1023 / diff);
         }
     }
 }
