@@ -27,6 +27,7 @@
 /* USER CODE BEGIN Includes */
 #include "stdio.h"
 #include <stdbool.h>
+#include <math.h>
 
 /* USER CODE END Includes */
 
@@ -50,13 +51,10 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-uint32_t adc_values[ADC_CHANNEL_COUNT];          // 生値読み取り用
-uint32_t max_values[ADC_CHANNEL_COUNT];          // 最大値保持
-uint32_t min_values[ADC_CHANNEL_COUNT];          // 最小値保持
-uint32_t calibration_start_time = 0;
-uint32_t led_timer = 0;
-uint16_t calibrated_values[ADC_CHANNEL_COUNT];
-
+uint32_t adc_values[ADC_CHANNEL_COUNT];
+uint32_t white_ref[ADC_CHANNEL_COUNT];
+uint32_t black_ref[ADC_CHANNEL_COUNT];
+uint16_t scaled_values[ADC_CHANNEL_COUNT];
 
 bool calibration_mode = true;                     // キャリブレーション中フラグ
 
@@ -65,9 +63,9 @@ bool calibration_mode = true;                     // キャリブレーション
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-void toggle_calibration_led(void);
-void calibrate_adc_values(void);
-void apply_calibration(uint32_t raw[], uint16_t scaled[]);
+void set_calibration_led(bool white_mode);
+void wait_for_button_press(void);
+void capture_reference(uint32_t ref[]);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -111,20 +109,29 @@ int main(void)
   MX_USART1_UART_Init();
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
-  HAL_Delay(1000);  // ← ここで1秒待つ（ADC安定化のため）
-  printf("Start 10s calibration\r\n");
+  printf("Hello from UART!\r\n");
 
-  HAL_ADC_Start_DMA(&hadc1, adc_values, ADC_CHANNEL_COUNT);
+    if (HAL_ADC_Start_DMA(&hadc1, adc_values, ADC_CHANNEL_COUNT) != HAL_OK) {
+        printf("HAL_ADC_Start_DMA FAILED (%ld)\r\n", HAL_ADC_GetError(&hadc1));
+    } else {
+        printf("ADC Start OK\r\n");
+    }
 
-  // max/min初期化
-  for (int i = 0; i < ADC_CHANNEL_COUNT; i++) {
-      max_values[i] = 0;
-      min_values[i] = 0xFFFFFFFF;
-  }
+    // --- Calibration ---
+    printf("Push button to record white reference (on white line)...\r\n");
+    set_calibration_led(true);
+    wait_for_button_press();
+    capture_reference(white_ref);
+    printf("White reference captured.\r\n");
 
-  calibration_mode = true;
-  uint32_t calibration_start_time = HAL_GetTick();
-  uint32_t led_timer = HAL_GetTick();
+    printf("Push button to record black reference (on black floor)...\r\n");
+    set_calibration_led(false);
+    wait_for_button_press();
+    capture_reference(black_ref);
+    printf("Black reference captured.\r\n");
+
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -134,53 +141,21 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-      if (calibration_mode) {
-          calibrate_adc_values();  // min/max 更新
+	  printf("Raw ADC: ");
+	          for (int i = 0; i < ADC_CHANNEL_COUNT; i++) {
+	              printf("%4lu ", adc_values[i]);
+	          }
+	          printf("\r\n");
 
-          // LEDを500msごとにトグル
-          if (HAL_GetTick() - led_timer >= 500) {
-              led_timer = HAL_GetTick();
-              toggle_calibration_led();
-          }
+	          apply_calibration(adc_values, scaled_values);
 
-          // 20秒でキャリブレーション終了
-          if (HAL_GetTick() - calibration_start_time >= 10000) {
-              calibration_mode = false;
-              HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
-              HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
-              printf("Calibration finished!\r\n");
+	          printf("Calibrated ADC: ");
+	          for (int i = 0; i < ADC_CHANNEL_COUNT; i++) {
+	              printf("%4u ", scaled_values[i]);
+	          }
+	          printf("\r\n");
 
-              // キャリブレーション結果確認出力
-              printf("Min: ");
-              for (int i = 0; i < ADC_CHANNEL_COUNT; i++) {
-                  printf("%4lu ", min_values[i]);
-              }
-              printf("\r\n");
-
-              printf("Max: ");
-              for (int i = 0; i < ADC_CHANNEL_COUNT; i++) {
-                  printf("%4lu ", max_values[i]);
-              }
-              printf("\r\n");
-          }
-      } else {
-    	  apply_calibration(adc_values, calibrated_values);
-
-          printf("Raw ADC: ");
-          for (int i = 0; i < ADC_CHANNEL_COUNT; i++) {
-              printf("%4lu ", adc_values[i]);
-          }
-          printf("\r\n");
-
-          printf("Calibrated ADC: ");
-          for (int i = 0; i < ADC_CHANNEL_COUNT; i++) {
-        	  printf("%4u ", calibrated_values[i]);
-
-          }
-          printf("\r\n");
-      }
-
-      HAL_Delay(200);
+	          HAL_Delay(300);
   }
   /* USER CODE END 3 */
 }
@@ -234,24 +209,41 @@ void toggle_calibration_led(void) {
     HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_12);
 }
 
-void calibrate_adc_values(void) {
-    for (int i = 0; i < ADC_CHANNEL_COUNT; i++) {
-        if (adc_values[i] > max_values[i]) max_values[i] = adc_values[i];
-        if (adc_values[i] < min_values[i]) min_values[i] = adc_values[i];
-    }
+void set_calibration_led(bool white_mode) {
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, white_mode ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, white_mode ? GPIO_PIN_RESET : GPIO_PIN_SET);
 }
 
 void apply_calibration(uint32_t raw[], uint16_t scaled[]) {
     for (int i = 0; i < ADC_CHANNEL_COUNT; i++) {
-        uint32_t range = max_values[i] - min_values[i];
-        if (range == 0) {
+        int32_t diff = (int32_t)black_ref[i] - (int32_t)white_ref[i];
+        if (diff == 0) {
             scaled[i] = 0;
         } else {
-            scaled[i] = (uint16_t)(1024.0f * (float)(raw[i] - min_values[i]) / (float)(range));
+            int32_t norm = (int32_t)raw[i] - (int32_t)white_ref[i];
+            if (norm < 0) norm = 0;
+            if (norm > diff) norm = diff;
+            scaled[i] = (uint16_t)(norm * 1023 / diff);
         }
     }
 }
 
+void wait_for_button_press(void) {
+    while (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_SET);
+    HAL_Delay(50);
+    while (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_RESET);
+    HAL_Delay(50);
+}
+
+void capture_reference(uint32_t ref[]) {
+    for (int i = 0; i < 20; i++) {
+        toggle_calibration_led();
+        HAL_Delay(100);
+    }
+    for (int i = 0; i < ADC_CHANNEL_COUNT; i++) {
+        ref[i] = adc_values[i];
+    }
+}
 
 
 /* USER CODE END 4 */
