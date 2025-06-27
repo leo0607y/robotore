@@ -66,6 +66,10 @@ void SystemClock_Config(void);
 void set_calibration_led(bool white_mode);
 void wait_for_button_press(void);
 void capture_reference(uint32_t ref[]);
+void apply_calibration(uint32_t raw[], uint16_t scaled[]);
+
+
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -74,6 +78,7 @@ int __io_putchar(int ch) {
     HAL_UART_Transmit(&huart1, (uint8_t*)&ch, 1, HAL_MAX_DELAY);
     return ch;
 }
+
 /* USER CODE END 0 */
 
 /**
@@ -141,19 +146,16 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  printf("Raw ADC: ");
-	          for (int i = 0; i < ADC_CHANNEL_COUNT; i++) {
-	              printf("%4lu ", adc_values[i]);
-	          }
-	          printf("\r\n");
+	  apply_calibration(adc_values, scaled_values);
 
-	          apply_calibration(adc_values, scaled_values);
+	     // R側6個の合計とL側6個の合計を計算
+	     int32_t right_sum = scaled_values[0] + scaled_values[2] + scaled_values[4] +
+	                         scaled_values[6] + scaled_values[8] + scaled_values[10];
+	     int32_t left_sum  = scaled_values[1] + scaled_values[3] + scaled_values[5] +
+	                         scaled_values[7] + scaled_values[9] + scaled_values[11];
+	     int32_t control   = right_sum - left_sum;
 
-	          printf("Calibrated ADC: ");
-	          for (int i = 0; i < ADC_CHANNEL_COUNT; i++) {
-	              printf("%4u ", scaled_values[i]);
-	          }
-	          printf("\r\n");
+	     printf("Control = %ld\r\n",control);
 
 	          HAL_Delay(300);
   }
@@ -223,8 +225,10 @@ void apply_calibration(uint32_t raw[], uint16_t scaled[]) {
             int32_t norm = (int32_t)raw[i] - (int32_t)white_ref[i];
             if (norm < 0) norm = 0;
             if (norm > diff) norm = diff;
-            scaled[i] = (uint16_t)((diff - norm) * 1023 / diff);
+//            scaled[i] = (uint16_t)((diff - norm) * 1023 / diff);
+            scaled[i] = (uint16_t)(norm* 1023 / diff);
         }
+
     }
 }
 
@@ -244,6 +248,10 @@ void capture_reference(uint32_t ref[]) {
         ref[i] = adc_values[i];
     }
 }
+
+//PID制御　ライントレース
+
+
 
 
 /* USER CODE END 4 */
