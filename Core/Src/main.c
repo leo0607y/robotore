@@ -20,6 +20,7 @@
 #include "main.h"
 #include "adc.h"
 #include "dma.h"
+#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -27,6 +28,7 @@
 /* USER CODE BEGIN Includes */
 #include "stdio.h"
 #include <stdbool.h>
+#include <stdlib.h>
 #include <math.h>
 
 /* USER CODE END Includes */
@@ -39,7 +41,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define ADC_CHANNEL_COUNT 12
-
+#define PWM_MAX 300
 
 /* USER CODE END PD */
 
@@ -78,6 +80,12 @@ int __io_putchar(int ch) {
     HAL_UART_Transmit(&huart1, (uint8_t*)&ch, 1, HAL_MAX_DELAY);
     return ch;
 }
+float Kp = 1.1f;
+float Ki = 0.0f;
+float Kd = 0.55f;
+int32_t integral = 0;
+int32_t previous_error = 0;
+int32_t dead_zone = 40;
 
 /* USER CODE END 0 */
 
@@ -113,6 +121,7 @@ int main(void)
   MX_DMA_Init();
   MX_USART1_UART_Init();
   MX_ADC1_Init();
+  MX_TIM8_Init();
   /* USER CODE BEGIN 2 */
   printf("Hello from UART!\r\n");
 
@@ -121,7 +130,8 @@ int main(void)
     } else {
         printf("ADC Start OK\r\n");
     }
-
+    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_3);
     // --- Calibration ---
     printf("Push button to record white reference (on white line)...\r\n");
     set_calibration_led(true);
@@ -137,6 +147,10 @@ int main(void)
 
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
+    //reset
+    integral = 0;
+    previous_error = 0;
+    HAL_Delay(10000);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -148,16 +162,52 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	  apply_calibration(adc_values, scaled_values);
 
-	     // R側6個の合計とL側6個の合計を計算
-	     int32_t right_sum = scaled_values[0] + scaled_values[2] + scaled_values[4] +
-	                         scaled_values[6] + scaled_values[8] + scaled_values[10];
-	     int32_t left_sum  = scaled_values[1] + scaled_values[3] + scaled_values[5] +
-	                         scaled_values[7] + scaled_values[9] + scaled_values[11];
-	     int32_t control   = right_sum - left_sum;
+	  int32_t right_sum = scaled_values[0] + scaled_values[2] + scaled_values[4] +
+	                          scaled_values[6] + scaled_values[8] + scaled_values[10];
+	      int32_t left_sum  = scaled_values[1] + scaled_values[3] + scaled_values[5] +
+	                          scaled_values[7] + scaled_values[9] + scaled_values[11];
 
-	     printf("Control = %ld\r\n",control);
+	      int32_t error = (right_sum - left_sum)/10;
 
-	          HAL_Delay(300);
+	      integral += error;
+	      if (integral > 1000) integral = 1000;
+	      if (integral < -1000) integral = -1000;
+	      float derivative = error - previous_error;
+	      float control_f = Kp * error + Ki * integral + Kd * derivative;
+	      previous_error = error;
+
+	      int32_t control_pwm = (int32_t)control_f;
+	      int32_t pwm_value = abs(control_pwm);
+	      if (pwm_value < dead_zone) {
+	          pwm_value = 0;
+	          control_pwm = 0;
+	      } else if (pwm_value > PWM_MAX) {
+	          pwm_value = PWM_MAX;
+	      }
+
+	      printf("error=%ld, pwm=%ld, control=%ld\r\n", error, pwm_value, control_pwm);
+
+	      if (control_pwm > 0) {
+	          // 右正転、左逆転
+	          HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_RESET);  // 右正転ON
+	          HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_SET);  // 左逆転ON（右正転とは逆向き）
+
+	          __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, pwm_value);  // 右PWM
+	          __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, pwm_value);  // 左PWM（逆回転なので同じ値）
+
+	      } else {
+	          // 左正転、右逆転
+	          HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_RESET);  // 左正転ON
+	          HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_SET);  // 右逆転ON
+
+	          __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, pwm_value);  // 右PWM（逆回転）
+	          __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, pwm_value);  // 左PWM
+	      }
+
+	      HAL_Delay(10);  // 10ms周期
+
+
+
   }
   /* USER CODE END 3 */
 }
@@ -179,10 +229,14 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 12;
+  RCC_OscInitStruct.PLL.PLLN = 336;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 4;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -192,12 +246,12 @@ void SystemClock_Config(void)
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
   {
     Error_Handler();
   }
