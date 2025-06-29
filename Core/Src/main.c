@@ -41,7 +41,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define ADC_CHANNEL_COUNT 12
-#define PWM_MAX 300
+#define PWM_MAX 3200
 
 /* USER CODE END PD */
 
@@ -80,13 +80,13 @@ int __io_putchar(int ch) {
     HAL_UART_Transmit(&huart1, (uint8_t*)&ch, 1, HAL_MAX_DELAY);
     return ch;
 }
-float Kp = 1.1f;
+float Kp = 0.48f;
 float Ki = 0.0f;
-float Kd = 0.55f;
+float Kd = 0.0f;
 int32_t integral = 0;
 int32_t previous_error = 0;
 int32_t dead_zone = 40;
-
+int32_t base_speed = 150;
 /* USER CODE END 0 */
 
 /**
@@ -150,7 +150,7 @@ int main(void)
     //reset
     integral = 0;
     previous_error = 0;
-    HAL_Delay(10000);
+    HAL_Delay(5000);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -162,49 +162,52 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	  apply_calibration(adc_values, scaled_values);
 
-	  int32_t right_sum = scaled_values[0] + scaled_values[2] + scaled_values[4] +
-	                          scaled_values[6] + scaled_values[8] + scaled_values[10];
-	      int32_t left_sum  = scaled_values[1] + scaled_values[3] + scaled_values[5] +
-	                          scaled_values[7] + scaled_values[9] + scaled_values[11];
+	      int32_t right_sum = scaled_values[0] + scaled_values[2]*1.2 + scaled_values[4]*1.3 +
+	                          scaled_values[6]*1.5 + scaled_values[8] *1.6+ scaled_values[10]*1.2;
+	      int32_t left_sum  = scaled_values[1] + scaled_values[3]*1.2 + scaled_values[5]*1.3 +
+	                          scaled_values[7]*1.5 + scaled_values[9]*1.6 + scaled_values[11]*1.2;
 
-	      int32_t error = (right_sum - left_sum)/10;
+	      int32_t error = (right_sum - left_sum) / 10;
 
 	      integral += error;
 	      if (integral > 1000) integral = 1000;
 	      if (integral < -1000) integral = -1000;
+
 	      float derivative = error - previous_error;
 	      float control_f = Kp * error + Ki * integral + Kd * derivative;
 	      previous_error = error;
 
 	      int32_t control_pwm = (int32_t)control_f;
-	      int32_t pwm_value = abs(control_pwm);
-	      if (pwm_value < dead_zone) {
-	          pwm_value = 0;
+
+	      // --- デッドゾーン処理 ---
+	      if (abs(control_pwm) < dead_zone) {
 	          control_pwm = 0;
-	      } else if (pwm_value > PWM_MAX) {
-	          pwm_value = PWM_MAX;
 	      }
 
-	      printf("error=%ld, pwm=%ld, control=%ld\r\n", error, pwm_value, control_pwm);
+	      // --- 左右PWM値の計算 ---
+	      int32_t right_pwm = base_speed + control_pwm;
+	      int32_t left_pwm  = base_speed - control_pwm;
 
-	      if (control_pwm > 0) {
-	          // 右正転、左逆転
-	          HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_RESET);  // 右正転ON
-	          HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_SET);  // 左逆転ON（右正転とは逆向き）
+	      // --- PWM制限（クリッピング） ---
+	      if (right_pwm > PWM_MAX) right_pwm = PWM_MAX;
+	      if (right_pwm < 0)        right_pwm = 0;
+	      if (left_pwm > PWM_MAX)   left_pwm = PWM_MAX;
+	      if (left_pwm < 0)         left_pwm = 0;
 
-	          __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, pwm_value);  // 右PWM
-	          __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, pwm_value);  // 左PWM（逆回転なので同じ値）
+	      // --- モータ制御 ---
+	      // 正転指定（前進）
+	      HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_RESET);  // 右モータ正転
+	      HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_RESET);  // 左モータ正転
 
-	      } else {
-	          // 左正転、右逆転
-	          HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_RESET);  // 左正転ON
-	          HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_SET);  // 右逆転ON
+	      // PWM出力（前進）
+	      __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, right_pwm);  // 右PWM
+	      __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, left_pwm);   // 左PWM
 
-	          __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, pwm_value);  // 右PWM（逆回転）
-	          __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, pwm_value);  // 左PWM
-	      }
+	      // --- デバッグ出力 ---
+//	      printf("error=%ld, L_pwm=%ld, R_pwm=%ld, control=%ld\r\n", error, left_pwm, right_pwm, control_pwm);
 
-	      HAL_Delay(10);  // 10ms周期
+
+	      HAL_Delay(1);  // 10ms周期
 
 
 
