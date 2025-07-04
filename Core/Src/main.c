@@ -130,14 +130,14 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
     Encoder_Update(); // ここで1周期分のカウントを取得・リセット
-    SpeedControl_Update(); // ここでcnt_l, cnt_r, 速度計算
-    motorCtrlFlip();
+//    SpeedControl_Update(); // ここでcnt_l, cnt_r, 速度計算
+//    motorCtrlFlip();
 
 //    // --- 距離表示（cm単位） ---
-//    float dist_l, dist_r;
-//    getWheelDistance(&dist_l, &dist_r);
-//    float body_dist = getTotalDistance();
-//    printf("Body: %.2f cm, Left: %.2f cm, Right: %.2f cm\r\n", body_dist / 10.0f, dist_l / 10.0f, dist_r / 10.0f);
+    float dist_l, dist_r;
+    getWheelDistance(&dist_l, &dist_r);
+    float body_dist = getTotalDistance();
+    printf("Body: %.2f cm, Left: %.2f cm, Right: %.2f cm\r\n", body_dist / 10.0f, dist_l / 10.0f, dist_r / 10.0f);
 
     HAL_Delay(1); // 10ms周期
   }

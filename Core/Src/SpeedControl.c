@@ -74,6 +74,6 @@ void SpeedControl_Update(void)
     if (pwm < -300)
         pwm = -300;
     setMotor(pwm, pwm);
-    printf("spd:%.2f cm/s,pwm:%d,cnt_l:%d,cnt_r:%d \n", current_speed_cm_s, pwm,
-           cnt_l, cnt_r);
+//    printf("spd:%.2f cm/s,pwm:%d,cnt_l:%d,cnt_r:%d \n", current_speed_cm_s, pwm,
+//           cnt_l, cnt_r);
 }
