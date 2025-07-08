@@ -28,12 +28,7 @@
 /* USER CODE BEGIN Includes */
 #include "stdio.h"
 #include <stdbool.h>
-#include <stdlib.h>
 #include <math.h>
-
-#include "motor.h"
-#include "SpeedControl.h"
-#include "Encoder.h"
 
 /* USER CODE END Includes */
 
@@ -44,7 +39,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -55,14 +49,22 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-// キャリブレーション中フラグ
+//uint32_t adc_values[ADC_CHANNEL_COUNT];
+//uint32_t white_ref[ADC_CHANNEL_COUNT];
+//uint32_t black_ref[ADC_CHANNEL_COUNT];
+//uint16_t scaled_values[ADC_CHANNEL_COUNT];
+uint32_t timer, timer1, timer2;
+
+bool calibration_mode = true; // キャリブレーション中フラグ
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
-void SystemClock_Config(void);
-/* USER CODE BEGIN PFP */
-
+//void SystemClock_Config(void);
+///* USER CODE BEGIN PFP */
+//void set_calibration_led(bool white_mode);
+//void wait_for_button_press(void);
+//void capture_reference(uint32_t ref[]);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -71,6 +73,22 @@ int __io_putchar(int ch)
 {
   HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
   return ch;
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  if (htim->Instance == TIM6)
+  { // 1ms
+    timer++;
+    timer2++;
+
+//    Encoder_Update();
+  }
+}
+
+void Init(void)
+{
+  HAL_TIM_Base_Start_IT(&htim6); // 1msタイマ開始
 }
 /* USER CODE END 0 */
 
@@ -109,18 +127,36 @@ int main(void)
   MX_TIM8_Init();
   MX_TIM3_Init();
   MX_TIM4_Init();
+  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
-  Encoder_Init();
-  initMotor();
-  SpeedControl_Init();
-
-  // Wait for pushed button
-  SpeedControl_SetTargetSpeed(150.0f);
-  while(HAL_GPIO_ReadPin(SW1_GPIO_Port, SW1_Pin)){
-
-	  HAL_Delay(1);
-  }
-  HAL_Delay(3000);
+  Init();
+  //  printf("Hello from UART!\r\n");
+  //
+  //  if (HAL_ADC_Start_DMA(&hadc1, adc_values, ADC_CHANNEL_COUNT) != HAL_OK)
+  //  {
+  //    printf("HAL_ADC_Start_DMA FAILED (%ld)\r\n", HAL_ADC_GetError(&hadc1));
+  //  }
+  //  else
+  //  {
+  //    printf("ADC Start OK\r\n");
+  //  }
+  //
+  //  // --- Calibration ---
+  //  printf("Push button to record white reference (on white line)...\r\n");
+  //  set_calibration_led(true);
+  //  wait_for_button_press();
+  //  capture_reference(white_ref);
+  //  printf("White reference captured.\r\n");
+  //
+  //  printf("Push button to record black reference (on black floor)...\r\n");
+  //  set_calibration_led(false);
+  //  wait_for_button_press();
+  //  capture_reference(black_ref);
+  //  printf("Black reference captured.\r\n");
+  //
+  //  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
+  //  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
+  /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -129,18 +165,25 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    Encoder_Update(); // ここで1周期分のカウントを取得・リセット
-//    SpeedControl_Update(); // ここでcnt_l, cnt_r, 速度計算
-//    motorCtrlFlip();
+    //    printf("Raw ADC: ");
+    //    for (int i = 0; i < ADC_CHANNEL_COUNT; i++)
+    //    {
+    //      printf("%4lu ", adc_values[i]);
+    //    }
+    //    printf("\r\n");
+    //
+    //    apply_calibration(adc_values, scaled_values);
+    //
+    //    printf("Calibrated ADC: ");
+    //    for (int i = 0; i < ADC_CHANNEL_COUNT; i++)
+    //    {
+    //      printf("%4u ", scaled_values[i]);
+    //    }
+    //    printf("\r\n");
 
-//    // --- 距離表示（cm単位） ---
-    float dist_l, dist_r;
-    getWheelDistance(&dist_l, &dist_r);
-    float body_dist = getTotalDistance();
-    printf("Body: %.2f cm, Left: %.2f cm, Right: %.2f cm\r\n", body_dist / 10.0f, dist_l / 10.0f, dist_r / 10.0f);
-
-    HAL_Delay(1); // 10ms周期
+    printf("timer: %lu \n", timer);
   }
+
   /* USER CODE END 3 */
 }
 
@@ -189,6 +232,66 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+// キャリブレーション
+//void toggle_calibration_led(void)
+//{
+//  HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_11);
+//  HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_12);
+//}
+//
+//void set_calibration_led(bool white_mode)
+//{
+//  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11,
+//                    white_mode ? GPIO_PIN_SET : GPIO_PIN_RESET);
+//  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12,
+//                    white_mode ? GPIO_PIN_RESET : GPIO_PIN_SET);
+//}
+//
+//void apply_calibration(uint32_t raw[], uint16_t scaled[])
+//{
+//  for (int i = 0; i < ADC_CHANNEL_COUNT; i++)
+//  {
+//    int32_t diff = (int32_t)black_ref[i] - (int32_t)white_ref[i];
+//    if (diff == 0)
+//    {
+//      scaled[i] = 0;
+//    }
+//    else
+//    {
+//      int32_t norm = (int32_t)raw[i] - (int32_t)white_ref[i];
+//      if (norm < 0)
+//        norm = 0;
+//      if (norm > diff)
+//        norm = diff;
+//      scaled[i] = (uint16_t)(norm * 1023 / diff);
+//      scaled[i] = (uint16_t)((diff - norm) * 1023 / diff);
+//    }
+//  }
+//}
+//
+//void wait_for_button_press(void)
+//{
+//  while (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_SET)
+//    ;
+//  HAL_Delay(50);
+//  while (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_RESET)
+//    ;
+//  HAL_Delay(50);
+//}
+//
+//void capture_reference(uint32_t ref[])
+//{
+//  for (int i = 0; i < 20; i++)
+//  {
+//    toggle_calibration_led();
+//    HAL_Delay(100);
+//  }
+//  for (int i = 0; i < ADC_CHANNEL_COUNT; i++)
+//  {
+//    ref[i] = adc_values[i];
+//  }
+//}
 
 /* USER CODE END 4 */
 
