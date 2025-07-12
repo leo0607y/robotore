@@ -130,32 +130,6 @@ int main(void)
   MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
   Init();
-  //  printf("Hello from UART!\r\n");
-  //
-  //  if (HAL_ADC_Start_DMA(&hadc1, adc_values, ADC_CHANNEL_COUNT) != HAL_OK)
-  //  {
-  //    printf("HAL_ADC_Start_DMA FAILED (%ld)\r\n", HAL_ADC_GetError(&hadc1));
-  //  }
-  //  else
-  //  {
-  //    printf("ADC Start OK\r\n");
-  //  }
-  //
-  //  // --- Calibration ---
-  //  printf("Push button to record white reference (on white line)...\r\n");
-  //  set_calibration_led(true);
-  //  wait_for_button_press();
-  //  capture_reference(white_ref);
-  //  printf("White reference captured.\r\n");
-  //
-  //  printf("Push button to record black reference (on black floor)...\r\n");
-  //  set_calibration_led(false);
-  //  wait_for_button_press();
-  //  capture_reference(black_ref);
-  //  printf("Black reference captured.\r\n");
-  //
-  //  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
-  //  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -165,21 +139,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    //    printf("Raw ADC: ");
-    //    for (int i = 0; i < ADC_CHANNEL_COUNT; i++)
-    //    {
-    //      printf("%4lu ", adc_values[i]);
-    //    }
-    //    printf("\r\n");
-    //
-    //    apply_calibration(adc_values, scaled_values);
-    //
-    //    printf("Calibrated ADC: ");
-    //    for (int i = 0; i < ADC_CHANNEL_COUNT; i++)
-    //    {
-    //      printf("%4u ", scaled_values[i]);
-    //    }
-    //    printf("\r\n");
+
 	  printf("Timer: %lu\n", timer);
 	  HAL_Delay(1000);
   }
