@@ -9,14 +9,13 @@
 
 #define ADC_NUM 12 // ADCのチャンネル数
 
-float coefficient[ADC_NUM];
-float offset[ADC_NUM];
-
-int16_t sensor[ADC_NUM];
+extern float coefficient[ADC_NUM];
+extern float offset[ADC_NUM];
+extern int16_t sensor[ADC_NUM];
 
 void ADC_Init(void);
 void StorageBuffer(void);
 void Sensor_Update(void);
-void Sensor_Calibration(void);
+void Calibration(void);
 
 #endif

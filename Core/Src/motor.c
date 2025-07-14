@@ -15,7 +15,7 @@ int16_t mon_rev_l, mon_rev_r;    // デバッグ用: PWM値の監視
  *        PWM出力開始＆全チャンネルを停止状態にセット
  *        （起動時の暴走防止）
  */
-void initMotor(void)
+void Motor_Init(void)
 {
     HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1); // 左モータPWM開始
     HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_3); // 右モータPWM開始

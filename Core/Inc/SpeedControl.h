@@ -1,28 +1,28 @@
 #ifndef SPEEDCONTROL_H
 #define SPEEDCONTROL_H
 
-#include <stdint.h>
+#include "stm32f4xx_hal.h"
+#include "Encoder.h"
+#include "motor.h"
 
-/**
- * @brief 速度制御モジュール初期化
- */
-void SpeedControl_Init(void);
+void calculateVelocityControlFlip(void);
+float getVelocityControlTerm(void);
 
-/**
- * @brief 目標速度（cm/s）を設定
- * @param target_speed_cm_s 目標速度 [cm/s]
- */
-void SpeedControl_SetTargetSpeed(float target_speed_cm_s);
+float getCurrentVelocity(void);
+float getTargetVelocity(void);
+float getpidplus(void);
+float getTargetAcceleration(void);
+float setvariablespeed(void);
+void setTargetVelocity(float);
+void setTargetAcceleration(float);
 
-/**
- * @brief 速度制御ループ（一定周期で呼び出し）
- *        エンコーダ値から現在速度を算出し、PID演算でモータ出力を決定
- */
-void SpeedControl_Update(void);
+void startVelocityControl(void);
+void stopVelocityControl(void);
 
-/**
- * @brief 現在速度（cm/s）を取得
- */
-float SpeedControl_GetCurrentSpeed(void);
+void setClearFlagOfVelocityControlI();
+
+void setrunmode(uint16_t);
+
+extern uint16_t mode;
 
 #endif // SPEEDCONTROL_H

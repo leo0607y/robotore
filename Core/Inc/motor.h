@@ -8,7 +8,7 @@
 
 #define STOP_COUNTER_PERIOD 0
 
-void initMotor(void);
+void Motor_Init(void);
 void motorCtrlFlip(void);
 void droneMotorCtrlFlip(void);
 void setMotor(int16_t, int16_t);
