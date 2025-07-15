@@ -22,4 +22,9 @@ bool getUnableToRunFlag(void);
 
 void debugmotor(float, float);
 
+extern float tracking_term;
+
+void setBaseSpeed(float speed);
+float getBaseSpeed(void);
+
 #endif /* INC_TRACKINGPART_H_ */

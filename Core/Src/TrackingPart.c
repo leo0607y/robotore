@@ -4,19 +4,20 @@
 
 static int8_t trace_flag;
 static uint8_t i_clear_flag;
-static float tracking_term;
+float tracking_term; // static修飾子を削除
 static bool Unable_to_run_flag;
 static float mo_l_Deb;
 static float mo_r_Deb;
 static float pre_diff;
 float mon_velo_term;
+static float baseSpeed = 0; // baseSpeedを初期化
 
 void ControlLineTracking(void)
 {
     float p, d;
     static float i;
-    float kp = 1.0;
-    float kd = 0.0;
+    float kp = 1.6;
+    float kd = 0.01;
     float diff = 0;
     if (trace_flag == 1)
     {
@@ -58,8 +59,8 @@ void TraceFlip(void)
         velo_ctrl_term -= exceeded;
         tracking_term += exceeded;
 
-        float motor_left = velo_ctrl_term + tracking_term;
-        float motor_right = velo_ctrl_term - tracking_term;
+        float motor_left = baseSpeed + velo_ctrl_term + tracking_term; // baseSpeedを追加
+        float motor_right = baseSpeed + velo_ctrl_term - tracking_term; // baseSpeedを追加
 
         mon_velo_term = velo_ctrl_term;
 
@@ -116,4 +117,12 @@ void debugmotor(float mon_deb_l, float mon_deb_r)
 bool getUnableToRunFlag(void)
 {
     return Unable_to_run_flag;
+}
+
+void setBaseSpeed(float speed) {
+    baseSpeed = speed; // baseSpeedを設定する関数
+}
+
+float getBaseSpeed(void) {
+    return baseSpeed; // baseSpeedを取得する関数
 }

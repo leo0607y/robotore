@@ -67,6 +67,9 @@ extern DMA_HandleTypeDef hdma_adc1; // DMAハンドルのextern宣言を追加
 uint32_t timer, timer1, timer2;
 
 bool calibration_mode = true; // キャリブレーション中フラグ
+uint16_t lion = 0;            // mode変数を初期化
+uint16_t cnt, cnt2 = 0;
+uint16_t sw, sw2 = 0;
 
 /* USER CODE END PV */
 
@@ -100,11 +103,17 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 
 		CourseOut();
 	}
+	if (htim->Instance == TIM7) { // 0.1ms
+		timer1++;
+
+		StorageBuffer();
+	}
 }
 void Init(void) {
 	ADC_Init();
 	Encoder_Init();
 	HAL_TIM_Base_Start_IT(&htim6); // 1msタイマ開始
+	HAL_TIM_Base_Start_IT(&htim7); // 1msタイマ開始
 	Motor_Init();
 	LED(LED_BLUE);
 	Calibration();   // キャリブレーションモード
@@ -148,17 +157,101 @@ int main(void) {
 	MX_TIM3_Init();
 	MX_TIM4_Init();
 	MX_TIM6_Init();
+	MX_TIM7_Init();
 	/* USER CODE BEGIN 2 */
 	Init();
-
+	MX_TIM6_Init();
+	MX_TIM7_Init();
+	bool running_flag = false;
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 
 	while (1) {
+		if (StatusL('L') == 1 && sw == 0) {
+			timer = 0;
+			sw = 1;
+		}
+		if (StatusL('L') == 1 && timer > 20 && sw == 1) {
+			sw = 2;
+		}
+		if (timer > 40 && sw == 1) {
+			sw = 0; // 修正: 比較演算子を代入演算子に変更
+		}
+		if (StatusL('L') == 0 && sw == 2) {
+			lion++;
+			sw = 0;
+		}
 
+		if (StatusR('R') == 1 && SW2_EXTI_IRQn == 0) {
+			timer = 0;
+			sw2 = 1;
+		}
+		if (StatusR('R') == 1 && timer > 20 && sw2 == 1) {
+			sw2 = 2;
+		}
+		if (timer > 40 && sw2 == 1) {
+			sw2 = 0; // 修正: 比較演算子を代入演算子に変更
+		}
+		if (StatusR('R') == 0 && sw2 == 2) {
+			cnt++;
+			sw2 = 0;
+		}
+		if (cnt >= 2) {
+			cnt = 0;
+		}
+		if (cnt >= 1) {
+			HAL_Delay(1000);
+			timer2 = 0;
+			cnt = 0;
+		}
 
+		if (running_flag == false) {
+			stopTracking();
+			stopVelocityControl();
+		}
+		if (getgoalStatus() == true) {
+			running_flag = false;
+			cnt = 0;
+		}
+
+		if (lion >= 8) {
+			lion = 0;
+		}
+		switch (lion) {
+		case 0:
+			LED(LED_RED);
+			break;
+		case 1:
+			LED(LED_BLUE);
+			break;
+		case 2:
+			LED(LED_GREEN);
+			setBaseSpeed(150);
+			startTracking();
+			break;
+		case 3:
+			LED(LED_CYAN);
+			setBaseSpeed(300);
+			startTracking();
+			break;
+		case 4:
+			LED(LED_MAGENTA);
+			break;
+		case 5:
+			LED(LED_YELLOW);
+			break;
+		case 6:
+			LED(LED_WHITE);
+			break;
+		case 7:
+			LED(LED_OFF);
+			break;
+		default:
+			printf("Unknown Mode");
+			break;
+		}
 
 		/* USER CODE END WHILE */
 
@@ -227,14 +320,14 @@ void Error_Handler(void) {
 	/* USER CODE END Error_Handler_Debug */
 }
 
-#ifdef  USE_FULL_ASSERT
+#ifdef USE_FULL_ASSERT
 /**
-  * @brief  Reports the name of the source file and the source line number
-  *         where the assert_param error has occurred.
-  * @param  file: pointer to the source file name
-  * @param  line: assert_param error line source number
-  * @retval None
-  */
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */

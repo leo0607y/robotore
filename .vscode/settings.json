@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "trackingsensor.h": "c"
+        "trackingsensor.h": "c",
+        "speedcontrol.h": "c"
     }
 }
