@@ -8,7 +8,7 @@
 float values_max[ADC_NUM];
 float values_min[ADC_NUM] = {1000};
 
-static uint16_t adc_values[ADC_NUM];
+uint32_t adc_values[ADC_NUM]; // static修飾子を削除
 
 static int16_t buffer_0[10];
 static int16_t buffer_1[10];
@@ -31,9 +31,13 @@ int16_t sensor[ADC_NUM];
 
 UART_HandleTypeDef huart2;
 
+extern DMA_HandleTypeDef hdma_adc1; // DMAハンドルのextern宣言を追加
+
 void ADC_Init()
 {
-    HAL_ADC_Start_DMA(&hadc1, (uint32_t *)adc_values, ADC_NUM);
+    // __HAL_RCC_DMA2_CLK_ENABLE();                                // DMAクロック有効化
+    // HAL_DMA_DeInit(&hdma_adc1);                                 // DMA初期化解除
+    HAL_ADC_Start_DMA(&hadc1, (uint32_t *)adc_values, ADC_NUM); // ADC DMA開始
 }
 
 void StorageBuffer(void)

@@ -23,7 +23,7 @@ uint16_t StatusR(uint8_t buttan)
         ret = 2;
         HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET); // PA15のLEDを点灯
     }
-   else
+    else
     {
         HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET); // PA15のLEDを消灯
     }

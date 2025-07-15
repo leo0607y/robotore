@@ -12,6 +12,7 @@
 extern float coefficient[ADC_NUM];
 extern float offset[ADC_NUM];
 extern int16_t sensor[ADC_NUM];
+extern uint32_t adc_values[ADC_NUM]; // ADC値のextern宣言を追加
 
 void ADC_Init(void);
 void StorageBuffer(void);
