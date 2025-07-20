@@ -67,7 +67,7 @@ extern DMA_HandleTypeDef hdma_adc1; // DMAハンドルのextern宣言を追加
 uint32_t timer, timer1, timer2;
 
 bool calibration_mode = true; // キャリブレーション中フラグ
-uint16_t lion = 0;            // mode変数を初期化
+int lion = 0;            // mode変数を初期化
 uint16_t cnt, cnt2 = 0;
 uint16_t sw, sw2 = 0;
 
@@ -225,25 +225,32 @@ int main(void) {
 			break;
 		case 1:
 			LED(LED_BLUE);
+
 			break;
 		case 2:
 			LED(LED_GREEN);
-			setBaseSpeed(150);
+			setBaseSpeed(300);
 			startTracking();
 			break;
 		case 3:
 			LED(LED_CYAN);
-			setBaseSpeed(300);
+			setBaseSpeed(450);
 			startTracking();
 			break;
 		case 4:
 			LED(LED_MAGENTA);
+			setBaseSpeed(550);
+			startTracking();
 			break;
 		case 5:
 			LED(LED_YELLOW);
+			setBaseSpeed(600);
+			startTracking();
 			break;
 		case 6:
 			LED(LED_WHITE);
+			setBaseSpeed(650);
+			startTracking();
 			break;
 		case 7:
 			LED(LED_OFF);

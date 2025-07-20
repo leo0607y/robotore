@@ -12,12 +12,15 @@ static float pre_diff;
 float mon_velo_term;
 static float baseSpeed = 0; // baseSpeedを初期化
 
+// mainのlion変数をextern宣言
+extern int lion;
+
 void ControlLineTracking(void)
 {
     float p, d;
     static float i;
-    float kp = 1.6;
-    float kd = 0.01;
+    float kp = 1.8;
+    float kd = 0.03;
     float diff = 0;
     if (trace_flag == 1)
     {
@@ -101,6 +104,8 @@ void CourseOut(void)
     if (unable_cnt >= COURSEOUT)
     {
         Unable_to_run_flag = true;
+        lion = 7; // mainにあるlionと同じ変数に戻す
+        setMotor(0, 0);
     }
     else
     {
