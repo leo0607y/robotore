@@ -233,30 +233,30 @@ void runningFlip()
 		}
 
 		//--- Cross Line Process ---//
-		if (isCrossLine() == true && cross_line_ignore_flag == false)
-		{ // Cross line detect
-			cross_line_ignore_flag = true;
-			continuous_curve_flag = true;
-
-			clearCrossLineIgnoreDistance();
-			clearSideLineIgnoreDistance();
-
-			if (mode == 1)
-			{
-				correction_check_cnt_cross = 0;
-				//				saveCross(getTotalDistance());
-			}
-			else
-			{
-				correction_check_cnt_cross = 0;
-				correctionTotalDistanceFromCrossLine();
-				// saveDebug(getTotalDistance());
-			}
-		}
-		else if (cross_line_ignore_flag == true && getCrossLineIgnoreDistance() >= 50)
-		{ // 50
-			cross_line_ignore_flag = false;
-		}
+//		if (isCrossLine() == true && cross_line_ignore_flag == false)
+//		{ // Cross line detect
+//			cross_line_ignore_flag = true;
+//			continuous_curve_flag = true;
+//
+//			clearCrossLineIgnoreDistance();
+//			clearSideLineIgnoreDistance();
+//
+//			if (mode == 1)
+//			{
+//				correction_check_cnt_cross = 0;
+//				//				saveCross(getTotalDistance());
+//			}
+//			else
+//			{
+//				correction_check_cnt_cross = 0;
+//				correctionTotalDistanceFromCrossLine();
+//				// saveDebug(getTotalDistance());
+//			}
+//		}
+//		else if (cross_line_ignore_flag == true && getCrossLineIgnoreDistance() >= 50)
+//		{ // 50
+//			cross_line_ignore_flag = false;
+//		}
 
 		//--- Side marker Process---//
 		if (getSideSensorStatusR() == true)

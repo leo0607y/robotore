@@ -225,31 +225,32 @@ int main(void) {
 			break;
 		case 1:
 			LED(LED_BLUE);
-
+			setBaseSpeed(0);
+			startTracking();
 			break;
 		case 2:
 			LED(LED_GREEN);
-			setBaseSpeed(300);
+			setBaseSpeed(550);
 			startTracking();
 			break;
 		case 3:
 			LED(LED_CYAN);
-			setBaseSpeed(450);
+			setBaseSpeed(600);
 			startTracking();
 			break;
 		case 4:
 			LED(LED_MAGENTA);
-			setBaseSpeed(550);
+			setBaseSpeed(650);
 			startTracking();
 			break;
 		case 5:
 			LED(LED_YELLOW);
-			setBaseSpeed(600);
+			setBaseSpeed(700);
 			startTracking();
 			break;
 		case 6:
 			LED(LED_WHITE);
-			setBaseSpeed(650);
+			setBaseSpeed(750);
 			startTracking();
 			break;
 		case 7:
