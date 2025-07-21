@@ -8,7 +8,7 @@
 float values_max[ADC_NUM];
 float values_min[ADC_NUM] = {1000};
 
-uint32_t adc_values[ADC_NUM]; // static修飾子を削除
+extern uint32_t adc_values[ADC_NUM]; // adc_valuesの定義を削除し、extern宣言のみを使用
 
 static int16_t buffer_0[10];
 static int16_t buffer_1[10];
@@ -59,6 +59,14 @@ void StorageBuffer(void)
 
 void Sensor_Update(void)
 {
+    for (int j = 0; j <= 11; j++)
+    {
+        if (adc_values[j] >= values_max[j])
+            adc_values[j] = values_max[j];
+        if (adc_values[j] <= values_min[j])
+            adc_values[j] = values_min[j];
+    }
+
     sensor[0] = ((adc_values[0] - offset[0]) / coefficient[0]) * 1000;
     sensor[1] = ((adc_values[1] - offset[1]) / coefficient[1]) * 1000;
     sensor[2] = ((adc_values[2] - offset[2]) / coefficient[2]) * 1000;
@@ -72,13 +80,13 @@ void Sensor_Update(void)
     sensor[10] = ((adc_values[10] - offset[10]) / coefficient[10]) * 1000;
     sensor[11] = ((adc_values[11] - offset[11]) / coefficient[11]) * 1000;
 
-    for (int j = 0; j <= 11; j++)
-    {
-        if (sensor[j] >= 1000)
-            sensor[j] = 1000;
-        if (sensor[j] <= 0)
-            sensor[j] = 0;
-    }
+    //    for (int j = 0; j <= 11; j++)
+    //    {
+    //        if (sensor[j] >= 1000)
+    //            sensor[j] = 1000;
+    //        if (sensor[j] <= 0)
+    //            sensor[j] = 0;
+    //    }
     L_index = 0;
 }
 

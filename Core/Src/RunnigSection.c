@@ -30,6 +30,8 @@ static float min_velocity, max_velocity;
 static float acceleration, deceleration;
 static float straight_radius;
 
+extern int lion;
+
 void updateSideSensorStatus()
 {
 	// PC2の状態を読み取って左側センサー値を更新
@@ -50,6 +52,13 @@ void updateSideSensorStatus()
 	else
 	{
 		side_sensor_r = false; // センサーが反応していない
+	}
+}
+
+void SideMarker(void)
+{
+	if (side_sensor_l == false)
+	{
 	}
 }
 
@@ -233,30 +242,30 @@ void runningFlip()
 		}
 
 		//--- Cross Line Process ---//
-//		if (isCrossLine() == true && cross_line_ignore_flag == false)
-//		{ // Cross line detect
-//			cross_line_ignore_flag = true;
-//			continuous_curve_flag = true;
-//
-//			clearCrossLineIgnoreDistance();
-//			clearSideLineIgnoreDistance();
-//
-//			if (mode == 1)
-//			{
-//				correction_check_cnt_cross = 0;
-//				//				saveCross(getTotalDistance());
-//			}
-//			else
-//			{
-//				correction_check_cnt_cross = 0;
-//				correctionTotalDistanceFromCrossLine();
-//				// saveDebug(getTotalDistance());
-//			}
-//		}
-//		else if (cross_line_ignore_flag == true && getCrossLineIgnoreDistance() >= 50)
-//		{ // 50
-//			cross_line_ignore_flag = false;
-//		}
+		//		if (isCrossLine() == true && cross_line_ignore_flag == false)
+		//		{ // Cross line detect
+		//			cross_line_ignore_flag = true;
+		//			continuous_curve_flag = true;
+		//
+		//			clearCrossLineIgnoreDistance();
+		//			clearSideLineIgnoreDistance();
+		//
+		//			if (mode == 1)
+		//			{
+		//				correction_check_cnt_cross = 0;
+		//				//				saveCross(getTotalDistance());
+		//			}
+		//			else
+		//			{
+		//				correction_check_cnt_cross = 0;
+		//				correctionTotalDistanceFromCrossLine();
+		//				// saveDebug(getTotalDistance());
+		//			}
+		//		}
+		//		else if (cross_line_ignore_flag == true && getCrossLineIgnoreDistance() >= 50)
+		//		{ // 50
+		//			cross_line_ignore_flag = false;
+		//		}
 
 		//--- Side marker Process---//
 		if (getSideSensorStatusR() == true)

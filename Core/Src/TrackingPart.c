@@ -14,14 +14,15 @@ static float baseSpeed = 0; // baseSpeedを初期化
 
 // mainのlion変数をextern宣言
 extern int lion;
+float diff = 0;
 
 void ControlLineTracking(void)
 {
     float p, d;
     static float i;
-    float kp = 1.8325;
-    float kd = 0.06382;
-    float diff = 0;
+    float kp = 1.86;
+    float kd = 0.02;
+    //    float diff = 0;
     if (trace_flag == 1)
     {
         if (i_clear_flag == 1)
@@ -29,7 +30,7 @@ void ControlLineTracking(void)
             i = 0;
             i_clear_flag = 0;
         }
-        diff = ((sensor[0] + sensor[1] + sensor[2] + sensor[3] + sensor[4] + sensor[5]) / 5) - ((sensor[6] + sensor[7] + sensor[8] + sensor[9] + sensor[10] + sensor[11]) / 5);
+        diff = ((sensor[0] * 2 + sensor[1] * 1.8 + sensor[2] * 1.6 + sensor[3] * 1.4 + sensor[4] * 1.2 + sensor[5]) / 5) - ((sensor[6] + sensor[7] * 1.2 + sensor[8] * 1.4 + sensor[9] * 1.6 + sensor[10] * 1.8 + sensor[11] * 2) / 5);
         p = kp * diff;
         d = kd * (diff - pre_diff) / DELTA_T;
         tracking_term = p + d + i;
@@ -42,30 +43,30 @@ void TraceFlip(void)
 {
     if (trace_flag == 1)
     {
-        float velo_ctrl_term = getVelocityControlTerm();
-        float limit = MAX_COUNTER_PERIOD * 0.8;
+        // float velo_ctrl_term = getVelocityControlTerm();
+        //        float limit = MAX_COUNTER_PERIOD * 0.8;
 
-        if (velo_ctrl_term >= limit)
-            velo_ctrl_term = limit;
-        else if (velo_ctrl_term <= -limit)
-            velo_ctrl_term = -limit;
+        //        if (velo_ctrl_term >= limit)
+        //            velo_ctrl_term = limit;
+        //        else if (velo_ctrl_term <= -limit)
+        //            velo_ctrl_term = -limit;
 
-        float exceeded = 0;
-        if (velo_ctrl_term + tracking_term >= MAX_COUNTER_PERIOD)
-        {
-            exceeded = (velo_ctrl_term + tracking_term) - MAX_COUNTER_PERIOD;
-        }
-        else if (velo_ctrl_term - tracking_term <= -MAX_COUNTER_PERIOD)
-        {
-            exceeded = -MAX_COUNTER_PERIOD - (velo_ctrl_term - tracking_term);
-        }
-        velo_ctrl_term -= exceeded;
-        tracking_term += exceeded;
+        //        float exceeded = 0;
+        //        if (velo_ctrl_term + tracking_term >= MAX_COUNTER_PERIOD)
+        //        {
+        //            exceeded = (velo_ctrl_term + tracking_term) - MAX_COUNTER_PERIOD;
+        //        }
+        //        else if (velo_ctrl_term - tracking_term <= -MAX_COUNTER_PERIOD)
+        //        {
+        //            exceeded = -MAX_COUNTER_PERIOD - (velo_ctrl_term - tracking_term);
+        //        }
+        //        velo_ctrl_term -= exceeded;
+        //        tracking_term += exceeded;
 
-        float motor_left = baseSpeed + velo_ctrl_term + tracking_term; // baseSpeedを追加
-        float motor_right = baseSpeed + velo_ctrl_term - tracking_term; // baseSpeedを追加
+        float motor_left = baseSpeed + tracking_term;  // baseSpeedを追加
+        float motor_right = baseSpeed - tracking_term; // baseSpeedを追加
 
-        mon_velo_term = velo_ctrl_term;
+        //        mon_velo_term = velo_ctrl_term;
 
         setMotor(motor_left, motor_right);
     }
@@ -94,7 +95,7 @@ void CourseOut(void)
     all_sensor = (sensor[0] + sensor[1] + sensor[2] + sensor[3] + sensor[4] + sensor[5] +
                   sensor[6] + sensor[7] + sensor[8] + sensor[9] + sensor[10] + sensor[11]) /
                  12;
-    if (all_sensor > 850)
+    if (all_sensor > 900)
     {
         unable_cnt++;
     }
@@ -124,10 +125,12 @@ bool getUnableToRunFlag(void)
     return Unable_to_run_flag;
 }
 
-void setBaseSpeed(float speed) {
+void setBaseSpeed(float speed)
+{
     baseSpeed = speed; // baseSpeedを設定する関数
 }
 
-float getBaseSpeed(void) {
+float getBaseSpeed(void)
+{
     return baseSpeed; // baseSpeedを取得する関数
 }

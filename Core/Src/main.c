@@ -60,14 +60,14 @@ extern DMA_HandleTypeDef hdma_adc1; // DMAハンドルのextern宣言を追加
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-// uint32_t adc_values[ADC_CHANNEL_COUNT];
+uint32_t adc_values[ADC_NUM]; // ADC値の配列を有効化
 // uint32_t white_ref[ADC_CHANNEL_COUNT];
 // uint32_t black_ref[ADC_CHANNEL_COUNT];
 // uint16_t scaled_values[ADC_CHANNEL_COUNT];
 uint32_t timer, timer1, timer2;
 
 bool calibration_mode = true; // キャリブレーション中フラグ
-int lion = 0;            // mode変数を初期化
+int lion = 0;				  // mode変数を初期化
 uint16_t cnt, cnt2 = 0;
 uint16_t sw, sw2 = 0;
 
@@ -81,21 +81,24 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-int __io_putchar(int ch) {
-	HAL_UART_Transmit(&huart1, (uint8_t*) &ch, 1, HAL_MAX_DELAY);
+int __io_putchar(int ch)
+{
+	HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
 	return ch;
 }
 
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-	if (htim->Instance == TIM6) { // 1ms
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	if (htim->Instance == TIM6)
+	{ // 1ms
 		timer++;
 		timer2++;
 
-		Encoder_Update();
+		//		Encoder_Update();
 		Sensor_Update();
 
 		ControlLineTracking();
-		calculateVelocityControlFlip();
+		//		calculateVelocityControlFlip();
 		TraceFlip();
 		runningFlip();
 		motorCtrlFlip();
@@ -103,20 +106,22 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 
 		CourseOut();
 	}
-	if (htim->Instance == TIM7) { // 0.1ms
+	if (htim->Instance == TIM7)
+	{ // 0.1ms
 		timer1++;
 
 		StorageBuffer();
 	}
 }
-void Init(void) {
+void Init(void)
+{
 	ADC_Init();
 	Encoder_Init();
 	HAL_TIM_Base_Start_IT(&htim6); // 1msタイマ開始
 	HAL_TIM_Base_Start_IT(&htim7); // 1msタイマ開始
 	Motor_Init();
 	LED(LED_BLUE);
-	Calibration();   // キャリブレーションモード
+	Calibration();	 // キャリブレーションモード
 	HAL_Delay(1000); // 初期化後の待機時間
 }
 
@@ -126,7 +131,8 @@ void Init(void) {
  * @brief  The application entry point.
  * @retval int
  */
-int main(void) {
+int main(void)
+{
 
 	/* USER CODE BEGIN 1 */
 
@@ -168,58 +174,73 @@ int main(void) {
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 
-	while (1) {
-		if (StatusL('L') == 1 && sw == 0) {
+	while (1)
+	{
+		if (StatusL('L') == 1 && sw == 0)
+		{
 			timer = 0;
 			sw = 1;
 		}
-		if (StatusL('L') == 1 && timer > 20 && sw == 1) {
+		if (StatusL('L') == 1 && timer > 20 && sw == 1)
+		{
 			sw = 2;
 		}
-		if (timer > 40 && sw == 1) {
+		if (timer > 40 && sw == 1)
+		{
 			sw = 0; // 修正: 比較演算子を代入演算子に変更
 		}
-		if (StatusL('L') == 0 && sw == 2) {
+		if (StatusL('L') == 0 && sw == 2)
+		{
 			lion++;
 			sw = 0;
 		}
 
-		if (StatusR('R') == 1 && SW2_EXTI_IRQn == 0) {
+		if (StatusR('R') == 1 && SW2_EXTI_IRQn == 0)
+		{
 			timer = 0;
 			sw2 = 1;
 		}
-		if (StatusR('R') == 1 && timer > 20 && sw2 == 1) {
+		if (StatusR('R') == 1 && timer > 20 && sw2 == 1)
+		{
 			sw2 = 2;
 		}
-		if (timer > 40 && sw2 == 1) {
+		if (timer > 40 && sw2 == 1)
+		{
 			sw2 = 0; // 修正: 比較演算子を代入演算子に変更
 		}
-		if (StatusR('R') == 0 && sw2 == 2) {
+		if (StatusR('R') == 0 && sw2 == 2)
+		{
 			cnt++;
 			sw2 = 0;
 		}
-		if (cnt >= 2) {
+		if (cnt >= 2)
+		{
 			cnt = 0;
 		}
-		if (cnt >= 1) {
+		if (cnt >= 1)
+		{
 			HAL_Delay(1000);
 			timer2 = 0;
 			cnt = 0;
 		}
 
-		if (running_flag == false) {
+		if (running_flag == false)
+		{
 			stopTracking();
 			stopVelocityControl();
 		}
-		if (getgoalStatus() == true) {
+		if (getgoalStatus() == true)
+		{
 			running_flag = false;
 			cnt = 0;
 		}
 
-		if (lion >= 8) {
+		if (lion >= 8)
+		{
 			lion = 0;
 		}
-		switch (lion) {
+		switch (lion)
+		{
 		case 0:
 			LED(LED_RED);
 			break;
@@ -230,27 +251,27 @@ int main(void) {
 			break;
 		case 2:
 			LED(LED_GREEN);
-			setBaseSpeed(700);
+			setBaseSpeed(450);
 			startTracking();
 			break;
 		case 3:
 			LED(LED_CYAN);
-			setBaseSpeed(750);
+			setBaseSpeed(650);
 			startTracking();
 			break;
 		case 4:
 			LED(LED_MAGENTA);
-			setBaseSpeed(800);
+			setBaseSpeed(700);
 			startTracking();
 			break;
 		case 5:
 			LED(LED_YELLOW);
-			setBaseSpeed(850);
+			setBaseSpeed(750);
 			startTracking();
 			break;
 		case 6:
 			LED(LED_WHITE);
-			setBaseSpeed(900);
+			setBaseSpeed(800);
 			startTracking();
 			break;
 		case 7:
@@ -273,9 +294,10 @@ int main(void) {
  * @brief System Clock Configuration
  * @retval None
  */
-void SystemClock_Config(void) {
-	RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
-	RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
+void SystemClock_Config(void)
+{
+	RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+	RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
 	/** Configure the main internal regulator output voltage
 	 */
@@ -293,20 +315,21 @@ void SystemClock_Config(void) {
 	RCC_OscInitStruct.PLL.PLLN = 336;
 	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
 	RCC_OscInitStruct.PLL.PLLQ = 4;
-	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+	{
 		Error_Handler();
 	}
 
 	/** Initializes the CPU, AHB and APB buses clocks
 	 */
-	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
-			| RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
 	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
 	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
 	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
 	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK) {
+	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
+	{
 		Error_Handler();
 	}
 }
@@ -319,11 +342,13 @@ void SystemClock_Config(void) {
  * @brief  This function is executed in case of error occurrence.
  * @retval None
  */
-void Error_Handler(void) {
+void Error_Handler(void)
+{
 	/* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
 	__disable_irq();
-	while (1) {
+	while (1)
+	{
 	}
 	/* USER CODE END Error_Handler_Debug */
 }
@@ -338,9 +363,9 @@ void Error_Handler(void) {
  */
 void assert_failed(uint8_t *file, uint32_t line)
 {
-  /* USER CODE BEGIN 6 */
-  /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-  /* USER CODE END 6 */
+	/* USER CODE BEGIN 6 */
+	/* User can add his own implementation to report the file name and line number,
+	   ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+	/* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
