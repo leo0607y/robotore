@@ -20,7 +20,7 @@ void ControlLineTracking(void)
     float p, d;
     static float i;
     float kp = 1.8325;
-    float kd = 0.0638;
+    float kd = 0.06382;
     float diff = 0;
     if (trace_flag == 1)
     {
