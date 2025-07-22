@@ -1,7 +1,7 @@
 #ifndef INC_TRACKINGPART_H_
 #define INC_TRACKINGPART_H_
 
-#define COURSEOUT 40
+#define COURSEOUT 30
 
 #include "stm32f4xx_hal.h"
 #include "motor.h"

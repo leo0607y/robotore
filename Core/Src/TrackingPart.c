@@ -20,8 +20,8 @@ void ControlLineTracking(void)
 {
     float p, d;
     static float i;
-    float kp = 1.86;
-    float kd = 0.02;
+    float kp = 1.92;
+    float kd = 0.06;
     //    float diff = 0;
     if (trace_flag == 1)
     {
@@ -95,7 +95,7 @@ void CourseOut(void)
     all_sensor = (sensor[0] + sensor[1] + sensor[2] + sensor[3] + sensor[4] + sensor[5] +
                   sensor[6] + sensor[7] + sensor[8] + sensor[9] + sensor[10] + sensor[11]) /
                  12;
-    if (all_sensor > 900)
+    if (all_sensor > 890)
     {
         unable_cnt++;
     }
