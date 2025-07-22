@@ -5,7 +5,6 @@
 #include "stdbool.h"
 #include "TrackingSensor.h"
 #include "FullColorLED.h"
-#include "SpeedControl.h"
 #include "TrackingPart.h"
 #include "Encoder.h"
 #include "math.h"

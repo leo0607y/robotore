@@ -10,9 +10,10 @@
 #include "stm32f4xx_hal.h"
 
 #define PI 3.1415926535f
-#define WHEEL_RADIUS 11.875f // [mm] ホイール半径
-#define ENCODER_RESOLUTION 4096.0f                                                         // エンコーダ分解能
-#define REDUCTION_RATIO 0.28125f                                                           // 減速比
+#define WHEEL_RADIUS (11.875f / 1000.0f) // [m] ホイール半径
+//#define ENCODER_RESOLUTION 4096.0f                                                         // エンコーダ分解能
+#define ENCODER_RESOLUTION 4096.0f
+#define REDUCTION_RATIO (18.0f / 64.0f)                                                           // 減速比
 #define DISTANCE_PER_CNT (2.0f * PI * WHEEL_RADIUS * REDUCTION_RATIO / ENCODER_RESOLUTION) //[mm/cnt]
 #define CNT_OFFSET 32768
 

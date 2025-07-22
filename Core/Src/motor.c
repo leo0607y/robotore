@@ -36,15 +36,15 @@ void motorCtrlFlip(void)
     {
         motor_pwm_l = motor_l;
         // 正転: PWM出力, GPIOで正転指定
-        __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, motor_pwm_l);
-        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_RESET);
+        __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, motor_pwm_l);
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_RESET);
     }
     else
     {
         motor_pwm_l = motor_l * (-1);
         // 逆転: PWM出力, GPIOで逆転指定
-        __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, motor_pwm_l);
-        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_SET);
+        __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, motor_pwm_l);
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_SET);
     }
 
     // 右モータ制御
@@ -52,15 +52,15 @@ void motorCtrlFlip(void)
     {
         motor_pwm_r = motor_r;
         // 正転: PWM出力, GPIOで正転指定
-        __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, motor_pwm_r);
-        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_RESET);
+        __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, motor_pwm_r);
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_RESET);
     }
     else
     {
         motor_pwm_r = motor_r * (-1);
         // 逆転: PWM出力, GPIOで逆転指定
-        __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, motor_pwm_r);
-        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_SET);
+        __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, motor_pwm_r);
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_SET);
     }
     // デバッグ用: 実際に出力したPWM値を記録
     mon_rev_l = motor_pwm_l;

@@ -205,9 +205,6 @@ void clearspeedcount(void)
 
 void getWheelDistance(float *dist_l, float *dist_r)
 {
-    // Encoder.hでstatic宣言されているため、関数の先頭でstatic変数を再宣言しない
-
-    // enc_l_total, enc_r_totalはこのファイル内のstatic変数なので直接参照可能
     *dist_l = (float)enc_l_total * DISTANCE_PER_CNT;
     *dist_r = (float)enc_r_total * DISTANCE_PER_CNT;
 }

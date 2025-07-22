@@ -3,8 +3,8 @@
 
 #include "stm32f4xx_hal.h"
 
-#define MAX_COUNTER_PERIOD 1999
-#define MIN_COUNTER_PERIOD -1999
+#define MAX_COUNTER_PERIOD 1699
+#define MIN_COUNTER_PERIOD -1699
 
 #define STOP_COUNTER_PERIOD 0
 

@@ -5,7 +5,7 @@
 
 #include "stm32f4xx_hal.h"
 #include "motor.h"
-#include "SpeedControl.h"
+#include <SpeedControl.h>
 #include "TrackingSensor.h"
 #include "main.h"
 
