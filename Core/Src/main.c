@@ -101,6 +101,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		motorCtrlFlip();
 		updateSideSensorStatus();
 
+//		S_Sensor();
 		CourseOut();
 	}
 	if (htim->Instance == TIM7) { // 0.1ms
@@ -241,6 +242,7 @@ int main(void) {
 			}
 			setBaseSpeed(0);
 			startTracking();
+			S_Sensor();
 			break;
 		case 2:
 			LED(LED_GREEN);

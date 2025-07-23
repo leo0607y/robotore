@@ -16,6 +16,7 @@ bool getgoalStatus();
 void SideMarker();
 void startstop(void);
 void updateSideSensorStatus();
+void S_Sensor();
 
 void setRunMode(uint16_t);
 bool isCrossLine();

@@ -8,6 +8,11 @@
 uint16_t velocity_table_idx;
 uint16_t mode;
 
+static bool Start_Flag = false;
+static bool Stop_Flag = false;
+uint8_t Marker_State = 0;       // 0: idle, 1: start passed, 2: goal candidate
+uint32_t RightDetectedTime = 0;
+
 float ref_distance;
 
 static uint8_t start_goal_line_cnt;
@@ -32,10 +37,12 @@ static float straight_radius;
 
 extern int lion;
 
+static int16_t goalflag = 0;
+
 void updateSideSensorStatus()
 {
 	// PC2の状態を読み取って左側センサー値を更新
-	if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_2) == GPIO_PIN_SET)
+	if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_3) == GPIO_PIN_RESET)
 	{
 		side_sensor_l = true; // センサーが反応している
 	}
@@ -45,7 +52,7 @@ void updateSideSensorStatus()
 	}
 
 	// PC3の状態を読み取って右側センサー値を更新
-	if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_3) == GPIO_PIN_SET)
+	if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_2) == GPIO_PIN_RESET)
 	{
 		side_sensor_r = true; // センサーが反応している
 	}
@@ -55,6 +62,85 @@ void updateSideSensorStatus()
 	}
 }
 
+//void S_Sensor(){
+//
+//
+//	if(side_sensor_l == true && side_sensor_r == false){
+////		LED(LED_MAGENTA);  //左センサのみ
+//	}
+//	else if(side_sensor_l == false && side_sensor_r == true){
+////		LED(LED_GREEN); // 右センサのみ
+//
+//	}
+//	else if(side_sensor_l == true && side_sensor_r == true){
+////		LED(LED_WHITE); // 両センサー
+//		goalflag = 0;
+//	}
+//	else if(side_sensor_l == false && side_sensor_r == false){
+////		LED(LED_CYAN); // 検知なし
+//	}
+//}
+
+void S_Sensor()
+{
+    // センサ読み取り（白いライン上でtrue）
+    bool side_sensor_r = (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_2) == GPIO_PIN_RESET); // R: ライン上
+    bool side_sensor_l = (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_3) == GPIO_PIN_RESET); // L: ライン上
+
+    static bool prev_side_sensor_r = false;
+    static uint32_t start_passed_time = 0;
+
+    if (!Start_Flag)
+    {
+        // スタート判定は右センサの立ち上がりだけで判定
+        bool rising_edge_r = (!prev_side_sensor_r && side_sensor_r);
+        if (rising_edge_r)
+        {
+            Start_Flag = true;
+            Marker_State = 1;
+            start_passed_time = HAL_GetTick();  // スタート時刻を保存
+        }
+    }
+    else if (Start_Flag && !Stop_Flag)
+    {
+        bool rising_edge_r = (!prev_side_sensor_r && side_sensor_r);
+        uint32_t current_time = HAL_GetTick();
+
+
+        if (Marker_State == 1 && rising_edge_r && (current_time - start_passed_time) > 1000)
+        {
+            RightDetectedTime = current_time;
+            Marker_State = 2;
+        }
+
+        if (Marker_State == 2 && side_sensor_l)
+        {
+            uint32_t dt = current_time - RightDetectedTime;
+            if (dt <= 100)
+            {
+                Marker_State = 1;  // 交差ラインなのでキャンセル
+            }
+        }
+
+        if (Marker_State == 2)
+        {
+            uint32_t dt = current_time - RightDetectedTime;
+            if (dt > 100)
+            {
+                Stop_Flag = true;
+                lion = 7;
+                setMotor(0, 0);
+                Marker_State = 0;
+                Start_Flag = false;
+                Stop_Flag = false;
+
+            }
+        }
+    }
+
+    prev_side_sensor_r = side_sensor_r;
+
+}
 
 
 void setRunMode(uint16_t num)
