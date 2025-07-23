@@ -2,6 +2,7 @@
     "files.associations": {
         "trackingsensor.h": "c",
         "speedcontrol.h": "c",
-        "motor.h": "c"
+        "motor.h": "c",
+        "runningsection.h": "c"
     }
 }

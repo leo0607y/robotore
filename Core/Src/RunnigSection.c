@@ -55,12 +55,7 @@ void updateSideSensorStatus()
 	}
 }
 
-void SideMarker(void)
-{
-	if (side_sensor_l == false)
-	{
-	}
-}
+
 
 void setRunMode(uint16_t num)
 {

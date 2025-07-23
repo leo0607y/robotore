@@ -13,10 +13,13 @@ void updateSideSensorStatus();
 bool getSideSensorStatusL();
 bool getSideSensorStatusR();
 bool getgoalStatus();
+void SideMarker();
+void startstop(void);
+void updateSideSensorStatus();
 
 void setRunMode(uint16_t);
 bool isCrossLine();
-//bool isContinuousCurvature();
+// bool isContinuousCurvature();
 bool isTargetDistance(float);
 
 void running();
@@ -34,7 +37,7 @@ float radius2Velocity(float);
 void addDecelerationDistanceMergin(float *, int16_t);
 void addAccelerationDistanceMergin(float *, int16_t);
 void decelerateProcessing(const float, const float *);
-//void accelerateProcessing(const float, const float *);
+// void accelerateProcessing(const float, const float *);
 void updateTargetVelocity();
 void correctionTotalDistanceFromCrossLine();
 void correctionTotalDistanceFromSideLine();
