@@ -68,7 +68,7 @@ uint32_t timer, timer1, timer2;
 
 bool calibration_mode = true; // キャリブレーション中フラグ
 int lion = 0;				  // mode変数を初期化
-int nop = 0;
+int bayado = -1;
 uint16_t cnt, cnt2 = 0;
 uint16_t sw, sw2 = 0;
 
@@ -181,103 +181,110 @@ int main(void) {
 	/* USER CODE BEGIN WHILE */
 
 	while (1) {
-		if (StatusL('L') == 1 && sw == 0) {
-			timer = 0;
-			sw = 1;
-		}
-		if (StatusL('L') == 1 && timer > 20 && sw == 1) {
-			sw = 2;
-		}
-		if (timer > 40 && sw == 1) {
-			sw = 0; // 修正: 比較演算子を代入演算子に変更
-		}
-		if (StatusL('L') == 0 && sw == 2) {
-			lion++;
-			sw = 0;
-		}
 
-		if (StatusR('R') == 1 && SW2_EXTI_IRQn == 0) {
-			timer = 0;
+
+		// --- 右ボタン: lionをCaseとして確定 ---
+		if (StatusR('R') == 2 && sw2 == 0) {
+			timer2 = 0;
 			sw2 = 1;
 		}
-		if (StatusR('R') == 1 && timer > 20 && sw2 == 1) {
+		if (StatusR('R') == 2 && timer2 > 20 && sw2 == 1) {
 			sw2 = 2;
 		}
-		if (timer > 40 && sw2 == 1) {
-			sw2 = 0; // 修正: 比較演算子を代入演算子に変更
-		}
-		if (StatusR('R') == 0 && sw2 == 2) {
-			cnt++;
+		if (timer2 > 40 && sw2 == 1) {
 			sw2 = 0;
 		}
-		if (cnt >= 2) {
-			cnt = 0;
-		}
-		if (cnt >= 1) {
-			HAL_Delay(1000);
-			timer2 = 0;
-			cnt = 0;
-		}
+		if (StatusR('R') == 0 && sw2 == 2) {
+			bayado = lion;  // モードを確定！
 
-		if (running_flag == false) {
-			stopTracking();
+			sw2 = 0;
 		}
-		if (getgoalStatus() == true) {
-			running_flag = false;
-			cnt = 0;
-		}
+		if (StatusL('L') == 1 && sw == 0) {
+					timer = 0;
+					sw = 1;
+				}
+				if (StatusL('L') == 1 && timer > 20 && sw == 1) {
+					sw = 2;  // 長押し中
+				}
+				if (timer > 40 && sw == 1) {
+					sw = 0;  // チャタリング防止
+				}
+				if (StatusL('L') == 0 && sw == 2) {
+					lion++;
+					if (lion >= 8)
+						lion = 0;
+					sw = 0;
+				}
 
-		if (lion >= 8) {
-			lion = 0;
-		}
+		// --- lionに応じてLEDのみ表示 ---
 		switch (lion) {
 		case 0:
 			LED(LED_RED);
 			break;
 		case 1:
 			LED(LED_BLUE);
-			if (nop == 0) {
-				nop = 1;
-				HAL_Delay(3000);
-			}
+			break;
+		case 2:
+			LED(LED_GREEN);
+			break;
+		case 3:
+			LED(LED_CYAN);
+			break;
+		case 4:
+			LED(LED_MAGENTA);
+			break;
+		case 5:
+			LED(LED_YELLOW);
+			break;
+		case 6:
+			LED(LED_WHITE);
+			break;
+		case 7:
+			LED(LED_OFF);
+			stopTracking();
+			break;
+		default:
+			break;
+		}
+
+		switch (bayado) {
+		case 0:
+			stopTracking();
+
+			break;
+		case 1:
 			setBaseSpeed(0);
 			startTracking();
 			S_Sensor();
 			break;
 		case 2:
-			LED(LED_GREEN);
-			setBaseSpeed(800);
+//			setBaseSpeed(800);
 			startTracking();
+			S_Sensor();
 			break;
 		case 3:
-			LED(LED_CYAN);
 			setBaseSpeed(850);
 			startTracking();
 			break;
 		case 4:
-			LED(LED_MAGENTA);
 			setBaseSpeed(900);
 			startTracking();
 			break;
 		case 5:
-			LED(LED_YELLOW);
 			setBaseSpeed(950);
 			startTracking();
 			break;
 		case 6:
-			LED(LED_WHITE);
 			setBaseSpeed(1000);
 			startTracking();
 			break;
 		case 7:
-			LED(LED_OFF);
-			nop = 0;
+			stopTracking();
 			break;
 		default:
-			printf("Unknown Mode");
+			// 未選択時など（Case == -1）
 			break;
 		}
-
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */

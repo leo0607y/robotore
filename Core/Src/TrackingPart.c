@@ -15,7 +15,7 @@ float mon_velo_term;
 static float baseSpeed = 0; // baseSpeedを初期化
 
 // mainのlion変数をextern宣言
-extern int lion;
+extern int bayado;
 float diff = 0;
 
 static float integral_left = 0.0;
@@ -120,6 +120,7 @@ void stopTracking(void)
 {
 	trace_flag = 0;
 	tracking_term = 0;
+	setMotor(0,0);
 }
 
 void CourseOut(void)
@@ -137,7 +138,7 @@ void CourseOut(void)
 	if (unable_cnt >= COURSEOUT)
 	{
 		Unable_to_run_flag = true;
-		lion = 7; // mainにあるlionと同じ変数に戻す
+		bayado = 7; // mainにあるlionと同じ変数に戻す
 		setMotor(0, 0);
 	}
 	else

@@ -35,7 +35,7 @@ static float min_velocity, max_velocity;
 static float acceleration, deceleration;
 static float straight_radius;
 
-extern int lion;
+extern int bayado;
 
 static int16_t goalflag = 0;
 
@@ -128,7 +128,7 @@ void S_Sensor()
             if (dt > 100)
             {
                 Stop_Flag = true;
-                lion = 7;
+                bayado = 7;
                 setMotor(0, 0);
                 Marker_State = 0;
                 Start_Flag = false;
