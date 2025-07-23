@@ -5,10 +5,10 @@
  *      Author: reoch
  */
 
-#define DELTA_T 0.0001
+#define DELTA_T 0.001
 
-#define KP 4000.0
-#define KI 400.0
+#define KP 1500.0
+#define KI 15.0
 
 float SpeedControl(float target_velocity, float current_velocity, float *integral) {
 	float e = target_velocity - current_velocity;

@@ -95,16 +95,16 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		timer++;
 		timer2++;
 
-//		Encoder_Update();
-//		Sensor_Update();
-//
-//		ControlLineTracking();
-//		TraceFlip();
-//		runningFlip();
-//		motorCtrlFlip();
-//		updateSideSensorStatus();
-//
-//		CourseOut();
+		Encoder_Update();
+		Sensor_Update();
+
+		ControlLineTracking();
+		TraceFlip();
+		runningFlip();
+		motorCtrlFlip();
+		updateSideSensorStatus();
+
+		CourseOut();
 	}
 	if (htim->Instance == TIM7)
 	{ // 0.1ms
@@ -112,16 +112,16 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 		StorageBuffer();
 
-		Encoder_Update();
-				Sensor_Update();
-
-				ControlLineTracking();
-				TraceFlip();
-				runningFlip();
-				motorCtrlFlip();
-				updateSideSensorStatus();
-
-				CourseOut();
+//		Encoder_Update();
+//				Sensor_Update();
+//
+//				ControlLineTracking();
+//				TraceFlip();
+//				runningFlip();
+//				motorCtrlFlip();
+//				updateSideSensorStatus();
+//
+//				CourseOut();
 	}
 }
 void Init(void)

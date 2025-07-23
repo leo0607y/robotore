@@ -2,7 +2,7 @@
 #include "Encoder.h"
 #include <stdio.h>
 
-#define DELTA_T 0.0001
+#define DELTA_T 0.001
 
 static int8_t trace_flag;
 static uint8_t i_clear_flag;
@@ -25,25 +25,34 @@ void getCurrentVelocity(float *current_speed_left, float *current_speed_right) {
 	int16_t enc_l = 0, enc_r = 0;
 	getEncoderCnt(&enc_l, &enc_r);
 
-	*current_speed_left = DISTANCE_PER_CNT * (float)enc_l / DELTA_T;
-	*current_speed_right = DISTANCE_PER_CNT * (float)enc_r / DELTA_T;
+	*current_speed_left = DISTANCE_PER_CNT * (float) enc_l / DELTA_T;
+	*current_speed_right = DISTANCE_PER_CNT * (float) enc_r / DELTA_T;
 }
 
 void ControlLineTracking(void) {
 	float p, d;
 	static float i;
+//	float kp = 0.0072;
+//	float kd = 0.00013;
 	float kp = 0.0019;
-	float kd = 0.000022;
+//	float kd = 0.000022;
+	float kd = 0.0;
+
 	//    float diff = 0;
 	if (trace_flag == 1) {
 		if (i_clear_flag == 1) {
 			i = 0;
 			i_clear_flag = 0;
 		}
-		diff = ((sensor[0] * 2 + sensor[1] * 1.8 + sensor[2] * 1.6
-				+ sensor[3] * 1.4 + sensor[4] * 1.2 + sensor[5]) / 5)
-				- ((sensor[6] + sensor[7] * 1.2 + sensor[8] * 1.4
-						+ sensor[9] * 1.6 + sensor[10] * 1.8 + sensor[11] * 2)
+//		diff = ((sensor[0] * 2 + sensor[1] * 1.8 + sensor[2] * 1.6
+//				+ sensor[3] * 1.4 + sensor[4] * 1.2 + sensor[5]) / 5)
+//				- ((sensor[6] + sensor[7] * 1.2 + sensor[8] * 1.4
+//						+ sensor[9] * 1.6 + sensor[10] * 1.8 + sensor[11] * 2)
+//						/ 5);
+		diff = ((sensor[0] * 1.0 + sensor[1] * 1.0 + sensor[2] * 1.0
+				+ sensor[3] * 1.0 + sensor[4] * 1.0 + sensor[5]) / 5)
+				- ((sensor[6] + sensor[7] * 1.0 + sensor[8] * 1.0
+						+ sensor[9] * 1.0 + sensor[10] * 1.0 + sensor[11] * 1.0)
 						/ 5);
 		p = kp * diff;
 		d = kd * (diff - pre_diff) / DELTA_T;
@@ -81,11 +90,13 @@ void TraceFlip(void) {
 		getCurrentVelocity(&current_speed_left, &current_speed_right);
 
 		// 速度制御
-		float speed_pi_output_left = SpeedControl(2.0 - tracking_term, current_speed_left, &integral_left);
-		float speed_pi_output_right = SpeedControl(2.0 + tracking_term, current_speed_right, &integral_right);
+		float speed_pi_output_left = SpeedControl(1.5 - tracking_term,
+				current_speed_left, &integral_left);
+		float speed_pi_output_right = SpeedControl(1.5 + tracking_term,
+				current_speed_right, &integral_right);
 
-//		float speed_pi_output_left = 0.0;
-//		float speed_pi_output_right = 0;
+//		float speed_pi_output_left = SpeedControl(0.0, current_speed_left, &integral_left);
+//				float speed_pi_output_right = SpeedControl(0.0, current_speed_right, &integral_right);
 
 		//        mon_velo_term = velo_ctrl_term;
 
