@@ -105,6 +105,8 @@ void getEncoderTotal(int16_t *total_l, int16_t *total_r)
     *total_r = (int16_t)((uint16_t)enc_r_total);
 }
 
+
+
 /**
  * @brief 総走行距離を取得
  */
