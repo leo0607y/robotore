@@ -38,7 +38,7 @@ void ControlLineTracking(void) {
 	static float i;
 	//	float kp = 0.0072;
 	//	float kd = 0.00013;
-	float kp = 0.004;
+	float kp = 0.0038;
 //		float kd = 0.000022;
 	float kd = 0.00001;
 

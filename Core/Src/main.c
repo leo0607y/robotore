@@ -275,27 +275,27 @@ int main(void)
 
 			break;
 		case 1:
-			setTarget(1.0);
+			setTarget(1.5);
 			startTracking();//blue
 			S_Sensor();
 			break;
 		case 2:
-			setTarget(1.5);
+			setTarget(1.8);
 			startTracking();//green
 			S_Sensor();
 			break;
 		case 3:
-			setTarget(1.8);
+			setTarget(2.0);
 			startTracking();//cyan
 			S_Sensor();
 			break;
 		case 4:
-			setTarget(2.0);
+			setTarget(2.2);
 			startTracking();//magenta
 			S_Sensor();
 			break;
 		case 5:
-			setTarget(2.2);
+			setTarget(2.4);
 			startTracking();//yellow
 			S_Sensor();
 			break;
