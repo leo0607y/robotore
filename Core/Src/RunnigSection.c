@@ -8,8 +8,8 @@
 uint16_t velocity_table_idx;
 uint16_t mode;
 
-static bool Start_Flag = false;
-static bool Stop_Flag = false;
+bool Start_Flag = false;
+bool Stop_Flag = false;
 uint8_t Marker_State = 0;       // 0: idle, 1: start passed, 2: goal candidate
 uint32_t RightDetectedTime = 0;
 
@@ -39,25 +39,18 @@ extern int bayado;
 
 static int16_t goalflag = 0;
 
-void updateSideSensorStatus()
-{
+void updateSideSensorStatus() {
 	// PC2の状態を読み取って左側センサー値を更新
-	if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_3) == GPIO_PIN_RESET)
-	{
+	if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_3) == GPIO_PIN_RESET) {
 		side_sensor_l = true; // センサーが反応している
-	}
-	else
-	{
+	} else {
 		side_sensor_l = false; // センサーが反応していない
 	}
 
 	// PC3の状態を読み取って右側センサー値を更新
-	if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_2) == GPIO_PIN_RESET)
-	{
+	if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_2) == GPIO_PIN_RESET) {
 		side_sensor_r = true; // センサーが反応している
-	}
-	else
-	{
+	} else {
 		side_sensor_r = false; // センサーが反応していない
 	}
 }
@@ -81,96 +74,77 @@ void updateSideSensorStatus()
 //	}
 //}
 
-void S_Sensor()
-{
-    // センサ読み取り（白いライン上でtrue）
-    bool side_sensor_r = (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_2) == GPIO_PIN_RESET); // R: ライン上
-    bool side_sensor_l = (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_3) == GPIO_PIN_RESET); // L: ライン上
+void S_Sensor() {
+	// センサ読み取り（白いライン上でtrue）
+	bool side_sensor_r = (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_2) == GPIO_PIN_RESET); // R: ライン上
+	bool side_sensor_l = (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_3) == GPIO_PIN_RESET); // L: ライン上
 
-    static bool prev_side_sensor_r = false;
-    static uint32_t start_passed_time = 0;
+	static bool prev_side_sensor_r = false;
+	static uint32_t start_passed_time = 0;
 
-    if (!Start_Flag)
-    {
-        // スタート判定は右センサの立ち上がりだけで判定
-        bool rising_edge_r = (!prev_side_sensor_r && side_sensor_r);
-        if (rising_edge_r)
-        {
-            Start_Flag = true;
-            Marker_State = 1;
-            start_passed_time = HAL_GetTick();  // スタート時刻を保存
-        }
-    }
-    else if (Start_Flag && !Stop_Flag)
-    {
-        bool rising_edge_r = (!prev_side_sensor_r && side_sensor_r);
-        uint32_t current_time = HAL_GetTick();
+	if (!Start_Flag) {
+		// スタート判定は右センサの立ち上がりだけで判定
+		bool rising_edge_r = (!prev_side_sensor_r && side_sensor_r);
+		if (rising_edge_r) {
+			Start_Flag = true;
+			Marker_State = 1;
+			start_passed_time = HAL_GetTick();  // スタート時刻を保存
+		}
+	} else if (Start_Flag && !Stop_Flag) {
+		bool rising_edge_r = (!prev_side_sensor_r && side_sensor_r);
+		uint32_t current_time = HAL_GetTick();
 
+		if (Marker_State == 1 && rising_edge_r
+				&& (current_time - start_passed_time) > 1000) {
+			RightDetectedTime = current_time;
+			Marker_State = 2;
+		}
 
-        if (Marker_State == 1 && rising_edge_r && (current_time - start_passed_time) > 1000)
-        {
-            RightDetectedTime = current_time;
-            Marker_State = 2;
-        }
+		if (Marker_State == 2 && side_sensor_l) {
+			uint32_t dt = current_time - RightDetectedTime;
+			if (dt <= 100) {
+				Marker_State = 1;  // 交差ラインなのでキャンセル
+			}
+		}
 
-        if (Marker_State == 2 && side_sensor_l)
-        {
-            uint32_t dt = current_time - RightDetectedTime;
-            if (dt <= 100)
-            {
-                Marker_State = 1;  // 交差ラインなのでキャンセル
-            }
-        }
+		if (Marker_State == 2) {
+			uint32_t dt = current_time - RightDetectedTime;
+			if (dt > 100) {
+				Stop_Flag = true;
+				bayado = 7;
+				setMotor(0, 0);
+				Marker_State = 0;
+				Start_Flag = false;
+				Stop_Flag = false;
 
-        if (Marker_State == 2)
-        {
-            uint32_t dt = current_time - RightDetectedTime;
-            if (dt > 100)
-            {
-                Stop_Flag = true;
-                bayado = 7;
-                setMotor(0, 0);
-                Marker_State = 0;
-                Start_Flag = false;
-                Stop_Flag = false;
+			}
+		}
+	}
 
-            }
-        }
-    }
-
-    prev_side_sensor_r = side_sensor_r;
+	prev_side_sensor_r = side_sensor_r;
 
 }
 
-
-void setRunMode(uint16_t num)
-{
+void setRunMode(uint16_t num) {
 	mode = num;
 }
 
-bool isCrossLine()
-{
+bool isCrossLine() {
 	static uint16_t cnt = 0;
 	float sensor_edge_val_l = sensor[0];
 	float sensor_edge_val_r = sensor[11];
 	static bool flag = false;
 
-	if (sensor_edge_val_l < 700 && sensor_edge_val_r < 700)
-	{
+	if (sensor_edge_val_l < 700 && sensor_edge_val_r < 700) {
 		cnt++;
-	}
-	else
-	{
+	} else {
 		cnt = 0;
 	}
 
-	if (cnt >= 3)
-	{
+	if (cnt >= 3) {
 		// setLED2('Y');
 		flag = true;
-	}
-	else
-	{
+	} else {
 		// setLED2('N');
 		flag = false;
 	}
@@ -204,18 +178,15 @@ bool isCrossLine()
 //	return continuous_flag;
 //}
 
-bool isTargetDistance(float target)
-{
+bool isTargetDistance(float target) {
 	bool ret = false;
-	if (getDistance10mm() >= target)
-	{
+	if (getDistance10mm() >= target) {
 		ret = true;
 	}
 	return ret;
 }
 
-void running(void)
-{
+void running(void) {
 	uint16_t pattern = 0;
 
 	runningInit();
@@ -223,14 +194,11 @@ void running(void)
 	startVelocityControl();
 	setTargetVelocity(min_velocity);
 
-	while (goal_flag == false)
-	{
-		switch (pattern)
-		{
+	while (goal_flag == false) {
+		switch (pattern) {
 
 		case 0:
-			if (getSideSensorStatusR() == true)
-			{
+			if (getSideSensorStatusR() == true) {
 				start_goal_line_cnt++;
 
 				if (mode == 1)
@@ -249,27 +217,24 @@ void running(void)
 				pattern = 10;
 
 		case 10:
-			if (getSideSensorStatusL() == true)
-			{ // Leght side line detect
+			if (getSideSensorStatusL() == true) { // Leght side line detect
 				goal_judge_flag = false;
 				clearGoalJudgeDistance();
 			}
 
-			if (goal_judge_flag == false && getSideSensorStatusR() == true && getGoalJudgeDistance() >= 70)
-			{
+			if (goal_judge_flag == false && getSideSensorStatusR() == true
+					&& getGoalJudgeDistance() >= 70) {
 				goal_judge_flag = true;
 				clearGoalJudgeDistance();
 			}
 
-			else if (goal_judge_flag == true && getGoalJudgeDistance() >= 70)
-			{
+			else if (goal_judge_flag == true && getGoalJudgeDistance() >= 70) {
 				start_goal_line_cnt++;
 				goal_judge_flag = false;
 				clearGoalJudgeDistance();
 			}
 
-			if (start_goal_line_cnt >= 2)
-			{
+			if (start_goal_line_cnt >= 2) {
 				stopLogging();
 				stopVelocityUpdate();
 				pattern = 20;
@@ -291,8 +256,7 @@ void running(void)
 			break;
 		}
 
-		if (getUnableToRunFlag() == true)
-		{
+		if (getUnableToRunFlag() == true) {
 			stopLogging();
 			stopVelocityUpdate();
 			pattern = 20;
@@ -302,15 +266,12 @@ void running(void)
 	// goal_flag = false;
 }
 
-void runningFlip()
-{
-	if (run_flag == true)
-	{
+void runningFlip() {
+	if (run_flag == true) {
 		LED(LED_GREEN);
 		updateTargetVelocity();
 
-		if (isTargetDistance(10) == true)
-		{
+		if (isTargetDistance(10) == true) {
 			saveLog();
 
 			//			if(isContinuousCurvature() == true){
@@ -349,33 +310,27 @@ void runningFlip()
 		//		}
 
 		//--- Side marker Process---//
-		if (getSideSensorStatusR() == true)
-		{ // Right side line detect
+		if (getSideSensorStatusR() == true) { // Right side line detect
 			side_line_judge_flag = false;
 			clearSideLineJudgeDistance();
 		}
-		if (side_line_judge_flag == false && getSideSensorStatusL() == true && getSideLineJudgeDistance() >= 60)
-		{
+		if (side_line_judge_flag == false && getSideSensorStatusL() == true
+				&& getSideLineJudgeDistance() >= 60) {
 			side_line_judge_flag = true;
 			clearSideLineJudgeDistance();
-		}
-		else if (side_line_judge_flag == true && getSideLineJudgeDistance() >= 60)
-		{ // Detect side line
+		} else if (side_line_judge_flag == true
+				&& getSideLineJudgeDistance() >= 60) { // Detect side line
 			clearSideLineJudgeDistance();
 			side_line_judge_flag = false;
 
-			if (continuous_curve_flag == true)
-			{
+			if (continuous_curve_flag == true) {
 				continuous_curve_flag = false;
 				continuous_cnt_reset_flag = true;
 
-				if (mode == 1)
-				{
+				if (mode == 1) {
 					correction_check_cnt_side = 0;
 					//					saveSide(getTotalDistance());
-				}
-				else
-				{
+				} else {
 					correctionTotalDistanceFromSideLine();
 					// saveDebug(getTotalDistance());
 				}
@@ -397,15 +352,11 @@ void runningFlip()
 	}
 }
 
-void runningInit()
-{
-	if (mode == 1)
-	{
+void runningInit() {
+	if (mode == 1) {
 		LED(LED_WHITE);
 		//		ereaseLog();
-	}
-	else
-	{
+	} else {
 		//		loadDistance();
 		//		loadTheta();
 		//		loadCross();
@@ -428,15 +379,11 @@ void runningInit()
 	run_flag = true;
 }
 
-void saveLog()
-{
-	if (logging_flag == true)
-	{
+void saveLog() {
+	if (logging_flag == true) {
 		//		saveDistance(getDistance10mm());
 		//		saveTheta(getTheta10mm());
-	}
-	else if (velocity_update_flag == true)
-	{
+	} else if (velocity_update_flag == true) {
 		// saveDebug(getTargetVelocity());
 		// saveDebug(getCurrentVelocity());
 		//		saveDebug(getpidplus());
@@ -444,21 +391,18 @@ void saveLog()
 	}
 }
 
-void startLogging()
-{
+void startLogging() {
 	//	clearDistance10mm();
 	////	clearTheta10mm();
 	//	clearTotalDistance();
 	logging_flag = true;
 }
 
-void stopLogging()
-{
+void stopLogging() {
 	logging_flag = false;
 }
 
-void startVelocityUpdate()
-{
+void startVelocityUpdate() {
 	clearDistance10mm();
 	clearTotalDistance();
 	velocity_table_idx = 0;
@@ -469,13 +413,11 @@ void startVelocityUpdate()
 	side_line_idx = 0;
 }
 
-void stopVelocityUpdate()
-{
+void stopVelocityUpdate() {
 	velocity_update_flag = false;
 }
 
-void createVelocityTable()
-{
+void createVelocityTable() {
 	////	const float *p_distance, *p_theta;
 	////	p_distance = getDistanceArrayPointer();
 	////	p_theta = getThetaArrayPointer();
@@ -524,34 +466,29 @@ void createVelocityTable()
 	//	CreateAcceleration(p_distance);
 }
 
-float radius2Velocity(float radius)
-{
+float radius2Velocity(float radius) {
 	float velocity;
 
-	if (mode == 2)
-	{
-		velocity = radius * ((max_velocity - min_velocity) / straight_radius) + min_velocity;
-	}
-	else if (mode == 3)
-	{
-		velocity = 1e-3 * radius * radius * ((max_velocity - min_velocity) / straight_radius) + min_velocity;
+	if (mode == 2) {
+		velocity = radius * ((max_velocity - min_velocity) / straight_radius)
+				+ min_velocity;
+	} else if (mode == 3) {
+		velocity = 1e-3 * radius * radius
+				* ((max_velocity - min_velocity) / straight_radius)
+				+ min_velocity;
 	}
 
 	return velocity;
 }
 
-void addDecelerationDistanceMergin(float *table, int16_t mergin_size)
-{
+void addDecelerationDistanceMergin(float *table, int16_t mergin_size) {
 	uint16_t idx = mergin_size;
 	float pre_target_velocity = table[idx];
 
-	while (idx <= 6000 - 1)
-	{
-		if (pre_target_velocity > table[idx])
-		{
+	while (idx <= 6000 - 1) {
+		if (pre_target_velocity > table[idx]) {
 			float low_velocity = table[idx];
-			for (uint16_t i = idx - mergin_size; i < idx; i++)
-			{
+			for (uint16_t i = idx - mergin_size; i < idx; i++) {
 				table[i] = low_velocity;
 			}
 			pre_target_velocity = table[idx];
@@ -563,18 +500,14 @@ void addDecelerationDistanceMergin(float *table, int16_t mergin_size)
 	}
 }
 
-void addAccelerationDistanceMergin(float *table, int16_t mergin_size)
-{
+void addAccelerationDistanceMergin(float *table, int16_t mergin_size) {
 	uint16_t idx = 0;
 	float pre_target_velocity = table[idx];
 
-	while (idx <= 6000 - 1 - mergin_size)
-	{
-		if (pre_target_velocity < table[idx])
-		{
+	while (idx <= 6000 - 1 - mergin_size) {
+		if (pre_target_velocity < table[idx]) {
 			float low_velocity = pre_target_velocity;
-			for (uint16_t i = idx; i < idx + mergin_size; i++)
-			{
+			for (uint16_t i = idx; i < idx + mergin_size; i++) {
 				table[i] = low_velocity;
 			}
 			idx += mergin_size;
@@ -587,8 +520,7 @@ void addAccelerationDistanceMergin(float *table, int16_t mergin_size)
 	}
 }
 
-void decelerateProcessing(const float am, const float *p_distance)
-{
+void decelerateProcessing(const float am, const float *p_distance) {
 	//	uint16_t log_size = getDistanceLogSize();
 	//	for(uint16_t i = log_size - 1; i >= 1; i--){
 	//		float v_diff = velocity_table[i-1] - velocity_table[i];
@@ -603,8 +535,7 @@ void decelerateProcessing(const float am, const float *p_distance)
 	//	}
 }
 
-void accelerateProcessing(const float am, const float *p_distance)
-{
+void accelerateProcessing(const float am, const float *p_distance) {
 	//	uint16_t log_size = getDistanceLogSize();
 	//	for(uint16_t i = 0; i <= log_size - 1; i++){
 	//		float v_diff = velocity_table[i+1] - velocity_table[i];
@@ -619,8 +550,7 @@ void accelerateProcessing(const float am, const float *p_distance)
 	//	}
 }
 
-void updateTargetVelocity()
-{
+void updateTargetVelocity() {
 	//	static float pre_target_velocity;
 
 	//	if(velocity_update_flag == true){
@@ -643,8 +573,7 @@ void updateTargetVelocity()
 	//	}
 }
 
-void correctionTotalDistanceFromCrossLine()
-{
+void correctionTotalDistanceFromCrossLine() {
 	//	while(cross_line_idx <= getCrossLogSize()){
 	//		float temp_crossline_distance = getCrossLog(cross_line_idx);
 	//		float diff = fabs(temp_crossline_distance - getTotalDistance());
@@ -663,8 +592,7 @@ void correctionTotalDistanceFromCrossLine()
 	//	}
 }
 
-void correctionTotalDistanceFromSideLine()
-{
+void correctionTotalDistanceFromSideLine() {
 	//	while(side_line_idx <= getSideLogSize()){
 	//		float temp_sideline_distance = getSideLog(side_line_idx);
 	//		float diff = fabs(temp_sideline_distance - getTotalDistance());
@@ -684,8 +612,7 @@ void correctionTotalDistanceFromSideLine()
 	//	}
 }
 
-void CreateAcceleration(const float *p_distance)
-{
+void CreateAcceleration(const float *p_distance) {
 	//	uint16_t log_size = getDistanceLogSize();
 	//    for(uint16_t i = 0; i <= log_size - 1; i++){
 	//
@@ -696,8 +623,7 @@ void CreateAcceleration(const float *p_distance)
 	//    }
 }
 
-void SaveVelocityTable()
-{
+void SaveVelocityTable() {
 	//	uint16_t log_size = getDistanceLogSize();
 	//	for(uint16_t i = 0; i <= log_size - 1; i++){
 	////		saveDebug(velocity_table[i]);
@@ -705,35 +631,29 @@ void SaveVelocityTable()
 	//	}
 }
 
-bool getgoalStatus()
-{
+bool getgoalStatus() {
 	return goal_flag;
 }
 
-void setVelocityRange(float min_vel, float max_vel)
-{
+void setVelocityRange(float min_vel, float max_vel) {
 	min_velocity = min_vel;
 	max_velocity = max_vel;
 }
 
-void setAccDec(float acc, float dec)
-{
+void setAccDec(float acc, float dec) {
 	acceleration = acc;
 	deceleration = dec;
 }
 
-void setStraightRadius(float radius)
-{
+void setStraightRadius(float radius) {
 	straight_radius = radius;
 }
 
 // ↓sidesensorjob
-bool getSideSensorStatusL()
-{
+bool getSideSensorStatusL() {
 	return side_sensor_l;
 }
 
-bool getSideSensorStatusR()
-{
+bool getSideSensorStatusR() {
 	return side_sensor_r;
 }
