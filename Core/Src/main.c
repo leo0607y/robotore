@@ -271,33 +271,36 @@ int main(void)
 		switch (bayado)
 		{
 		case 0:
-			stopTracking();
+			stopTracking();//red
 
 			break;
 		case 1:
-			setTarget(1.8);
-			startTracking();
+			setTarget(1.0);
+			startTracking();//blue
 			S_Sensor();
 			break;
 		case 2:
-			setTarget(1.0);
-			startTracking();
+			setTarget(1.5);
+			startTracking();//green
 			S_Sensor();
 			break;
 		case 3:
-			startTracking();
+			setTarget(1.8);
+			startTracking();//cyan
 			S_Sensor();
 			break;
 		case 4:
-			startTracking();
+			setTarget(2.0);
+			startTracking();//magenta
 			S_Sensor();
 			break;
 		case 5:
-			startTracking();
+			setTarget(2.2);
+			startTracking();//yellow
 			S_Sensor();
 			break;
 		case 6:
-			startTracking();
+			startTracking();//white
 			S_Sensor();
 			break;
 		case 7:
