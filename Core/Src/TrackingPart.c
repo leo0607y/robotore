@@ -36,11 +36,8 @@ void getCurrentVelocity(float *current_speed_left, float *current_speed_right) {
 void ControlLineTracking(void) {
 	float p, d;
 	static float i;
-	//	float kp = 0.0072;
-	//	float kd = 0.00013;
-	float kp = 0.0039;
-//		float kd = 0.000022;
-	float kd = 0.00001;
+	float kp = 0.005; //2.6m/s
+	float kd = 0.00006; //2.6m/s
 
 	//    float diff = 0;
 	if (trace_flag == 1) {
