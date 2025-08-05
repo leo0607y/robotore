@@ -8,45 +8,12 @@
 #include "TrackingPart.h"
 #include "Encoder.h"
 #include "math.h"
+#include "tim.h"
+#include <stdlib.h>
 
-void updateSideSensorStatus();
-bool getSideSensorStatusL();
-bool getSideSensorStatusR();
-bool getgoalStatus();
-void SideMarker();
-void startstop(void);
-void updateSideSensorStatus();
+//void updateSideSensorStatus();
+void Fan_Ctrl();
+void FanMotor(int16_t);
 void S_Sensor();
-
-void setRunMode(uint16_t);
-bool isCrossLine();
-// bool isContinuousCurvature();
-bool isTargetDistance(float);
-
-void running();
-void runningFlip();
-void runningInit();
-
-void saveLog();
-void startLogging();
-void stopLogging();
-void startVelocityUpdate();
-void stopVelocityUpdate();
-
-void createVelocityTable();
-float radius2Velocity(float);
-void addDecelerationDistanceMergin(float *, int16_t);
-void addAccelerationDistanceMergin(float *, int16_t);
-void decelerateProcessing(const float, const float *);
-// void accelerateProcessing(const float, const float *);
-void updateTargetVelocity();
-void correctionTotalDistanceFromCrossLine();
-void correctionTotalDistanceFromSideLine();
-void CreateAcceleration(const float *);
-void SaveVelocityTable();
-
-void setVelocityRange(float, float);
-void setAccDec(float, float);
-void setStraightRadius(float);
 
 #endif

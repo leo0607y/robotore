@@ -15,3 +15,5 @@ float SpeedControl(float target_velocity, float current_velocity, float *integra
 	*integral += e * DELTA_T; // I制御
 	return e * KP + *integral * KI;
 }
+
+

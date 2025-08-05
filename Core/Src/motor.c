@@ -19,6 +19,7 @@ void Motor_Init(void)
 {
     HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1); // 左モータPWM開始
     HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_3); // 右モータPWM開始
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //Fan
     HAL_Delay(100);                           // 安全のため少し待機
 }
 

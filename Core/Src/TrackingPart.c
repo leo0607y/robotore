@@ -36,8 +36,8 @@ void getCurrentVelocity(float *current_speed_left, float *current_speed_right) {
 void ControlLineTracking(void) {
 	float p, d;
 	static float i;
-	float kp = 0.005; //2.6m/s
-	float kd = 0.00006; //2.6m/s
+	float kp = 0.0038; //2.6m/s
+	float kd = 0.00001; //2.6m/s
 
 	//    float diff = 0;
 	if (trace_flag == 1) {
@@ -65,27 +65,7 @@ void ControlLineTracking(void) {
 
 void TraceFlip(void) {
 	if (trace_flag == 1) {
-		// float velo_ctrl_term = getVelocityControlTerm();
-		//        float limit = MAX_COUNTER_PERIOD * 0.8;
 
-		//        if (velo_ctrl_term >= limit)
-		//            velo_ctrl_term = limit;
-		//        else if (velo_ctrl_term <= -limit)
-		//            velo_ctrl_term = -limit;
-
-		//        float exceeded = 0;
-		//        if (velo_ctrl_term + tracking_term >= MAX_COUNTER_PERIOD)
-		//        {
-		//            exceeded = (velo_ctrl_term + tracking_term) - MAX_COUNTER_PERIOD;
-		//        }
-		//        else if (velo_ctrl_term - tracking_term <= -MAX_COUNTER_PERIOD)
-		//        {
-		//            exceeded = -MAX_COUNTER_PERIOD - (velo_ctrl_term - tracking_term);
-		//        }
-		//        velo_ctrl_term -= exceeded;
-		//        tracking_term += exceeded;
-
-		// 車両移動速度取得
 		float current_speed_left = 0.0;
 		float current_speed_right = 0.0;
 		getCurrentVelocity(&current_speed_left, &current_speed_right);
@@ -115,6 +95,7 @@ void startTracking(void) {
 void stopTracking(void) {
 	trace_flag = 0;
 	tracking_term = 0;
+
 	setMotor(0, 0);
 }
 
@@ -135,6 +116,7 @@ void CourseOut(void) {
 		Start_Flag = false;
 		Stop_Flag = false;
 		bayado = 7; // mainにあるlionと同じ変数に戻す
+//		Fan_Ctrl(0);
 		setMotor(0, 0);
 	} else {
 		Unable_to_run_flag = false;

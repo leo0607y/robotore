@@ -28,6 +28,7 @@ static uint16_t L_index = 0;
 float coefficient[ADC_NUM];
 float offset[ADC_NUM];
 int16_t sensor[ADC_NUM];
+extern int lion;
 
 UART_HandleTypeDef huart2;
 

@@ -75,6 +75,7 @@ uint16_t sw, sw2 = 0;
 extern bool Start_Flag;
 extern bool Stop_Flag;
 extern uint8_t Marker_State;
+extern volatile uint32_t time_ms;
 
 /* USER CODE END PV */
 
@@ -86,16 +87,13 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-int __io_putchar(int ch)
-{
-	HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
+int __io_putchar(int ch) {
+	HAL_UART_Transmit(&huart1, (uint8_t*) &ch, 1, HAL_MAX_DELAY);
 	return ch;
 }
 
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-	if (htim->Instance == TIM6)
-	{ // 1ms
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+	if (htim->Instance == TIM6) { // 1ms
 		timer++;
 		timer2++;
 
@@ -104,15 +102,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 		ControlLineTracking();
 		TraceFlip();
-		runningFlip();
 		motorCtrlFlip();
-		updateSideSensorStatus();
+		Fan_Ctrl();
+		//		updateSideSensorStatus();
 
 		//		S_Sensor();
-		CourseOut();
 	}
-	if (htim->Instance == TIM7)
-	{ // 0.1ms
+	if (htim->Instance == TIM7) { // 0.1ms
 		timer1++;
 
 		StorageBuffer();
@@ -126,11 +122,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		//				motorCtrlFlip();
 		//				updateSideSensorStatus();
 		//
-		//				CourseOut();
+//						CourseOut();
 	}
 }
-void Init(void)
-{
+void Init(void) {
 	ADC_Init();
 	Encoder_Init();
 	HAL_TIM_Base_Start_IT(&htim6); // 1msタイマ開始
@@ -147,8 +142,7 @@ void Init(void)
  * @brief  The application entry point.
  * @retval int
  */
-int main(void)
-{
+int main(void) {
 
 	/* USER CODE BEGIN 1 */
 
@@ -180,34 +174,28 @@ int main(void)
 	MX_TIM4_Init();
 	MX_TIM6_Init();
 	MX_TIM7_Init();
+	MX_TIM1_Init();
 	/* USER CODE BEGIN 2 */
 	Init();
-	MX_TIM6_Init();
-	MX_TIM7_Init();
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 
-	while (1)
-	{
+	while (1) {
 
 		// --- 右ボタン: lionをCaseとして確定 ---
-		if (StatusR('R') == 2 && sw2 == 0)
-		{
+		if (StatusR('R') == 2 && sw2 == 0) {
 			timer2 = 0;
 			sw2 = 1;
 		}
-		if (StatusR('R') == 2 && timer2 > 20 && sw2 == 1)
-		{
+		if (StatusR('R') == 2 && timer2 > 20 && sw2 == 1) {
 			sw2 = 2;
 		}
-		if (timer2 > 40 && sw2 == 1)
-		{
+		if (timer2 > 40 && sw2 == 1) {
 			sw2 = 0;
 		}
-		if (StatusR('R') == 0 && sw2 == 2)
-		{
+		if (StatusR('R') == 0 && sw2 == 2) {
 			Marker_State = 0;
 			Start_Flag = false;
 			Stop_Flag = false;
@@ -216,29 +204,24 @@ int main(void)
 
 			sw2 = 0;
 		}
-		if (StatusL('L') == 1 && sw == 0)
-		{
+		if (StatusL('L') == 1 && sw == 0) {
 			timer = 0;
 			sw = 1;
 		}
-		if (StatusL('L') == 1 && timer > 20 && sw == 1)
-		{
+		if (StatusL('L') == 1 && timer > 20 && sw == 1) {
 			sw = 2; // 長押し中
 		}
-		if (timer > 40 && sw == 1)
-		{
+		if (timer > 40 && sw == 1) {
 			sw = 0; // チャタリング防止
 		}
-		if (StatusL('L') == 0 && sw == 2)
-		{
+		if (StatusL('L') == 0 && sw == 2) {
 			lion++;
 			if (lion >= 8)
 				lion = 0;
 			sw = 0;
 		}
 
-		switch (lion)
-		{
+		switch (lion) {
 		case 0:
 			LED(LED_RED);
 			break;
@@ -268,43 +251,45 @@ int main(void)
 			break;
 		}
 
-		switch (bayado)
-		{
+		switch (bayado) {
 		case 0:
-			stopTracking();//red
 
 			break;
 		case 1:
-			setTarget(1.5);
-			startTracking();//blue
+			FanMotor(2000);
+			setTarget(2.0);
+			startTracking(); //cyan
 			S_Sensor();
+			CourseOut();
+
 			break;
 		case 2:
-			setTarget(1.8);
-			startTracking();//green
-			S_Sensor();
+			FanMotor(4000);
+
 			break;
 		case 3:
 			setTarget(2.0);
-			startTracking();//cyan
+			startTracking(); //cyan
 			S_Sensor();
 			break;
 		case 4:
 			setTarget(2.2);
-			startTracking();//magenta
+			startTracking(); //magenta
 			S_Sensor();
 			break;
 		case 5:
 			setTarget(2.4);
-			startTracking();//yellow
+			startTracking(); //yellow
 			S_Sensor();
 			break;
 		case 6:
-			startTracking();//white
+			startTracking(); //white
 			S_Sensor();
 			break;
 		case 7:
 			stopTracking();
+			HAL_Delay(3000);
+			Fan_Ctrl(0);
 			break;
 		default:
 
@@ -322,10 +307,9 @@ int main(void)
  * @brief System Clock Configuration
  * @retval None
  */
-void SystemClock_Config(void)
-{
-	RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-	RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+void SystemClock_Config(void) {
+	RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
+	RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
 
 	/** Configure the main internal regulator output voltage
 	 */
@@ -343,21 +327,20 @@ void SystemClock_Config(void)
 	RCC_OscInitStruct.PLL.PLLN = 336;
 	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
 	RCC_OscInitStruct.PLL.PLLQ = 4;
-	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-	{
+	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
 		Error_Handler();
 	}
 
 	/** Initializes the CPU, AHB and APB buses clocks
 	 */
-	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
+			| RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
 	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
 	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
 	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
 	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
-	{
+	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK) {
 		Error_Handler();
 	}
 }
@@ -370,30 +353,28 @@ void SystemClock_Config(void)
  * @brief  This function is executed in case of error occurrence.
  * @retval None
  */
-void Error_Handler(void)
-{
+void Error_Handler(void) {
 	/* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
 	__disable_irq();
-	while (1)
-	{
+	while (1) {
 	}
 	/* USER CODE END Error_Handler_Debug */
 }
 
-#ifdef USE_FULL_ASSERT
+#ifdef  USE_FULL_ASSERT
 /**
- * @brief  Reports the name of the source file and the source line number
- *         where the assert_param error has occurred.
- * @param  file: pointer to the source file name
- * @param  line: assert_param error line source number
- * @retval None
- */
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
 void assert_failed(uint8_t *file, uint32_t line)
 {
-	/* USER CODE BEGIN 6 */
+  /* USER CODE BEGIN 6 */
 	/* User can add his own implementation to report the file name and line number,
 	   ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-	/* USER CODE END 6 */
+  /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
