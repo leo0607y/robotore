@@ -16,7 +16,7 @@ uint32_t RightDetectedTime = 0;
 static int16_t Fan;
 
 float ref_distance;
-extern int bayado;
+extern int lion,bayado;
 
 
 
@@ -69,7 +69,8 @@ void S_Sensor() {
 			uint32_t dt = current_time - RightDetectedTime;
 			if (dt > 100) {
 				Stop_Flag = true;
-				bayado = 7;
+				lion = 7;
+				bayado = 6;
 				setMotor(0, 0);
 				Marker_State = 0;
 				Start_Flag = false;

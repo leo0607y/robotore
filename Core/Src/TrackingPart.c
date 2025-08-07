@@ -19,7 +19,7 @@ extern bool Stop_Flag;
 extern uint8_t Marker_State;
 
 // mainのlion変数をextern宣言
-extern int bayado;
+extern int lion,bayado;
 float diff = 0;
 
 static float integral_left = 0.0;
@@ -36,8 +36,8 @@ void getCurrentVelocity(float *current_speed_left, float *current_speed_right) {
 void ControlLineTracking(void) {
 	float p, d;
 	static float i;
-	float kp = 0.0038; //2.6m/s
-	float kd = 0.00001; //2.6m/s
+	float kp = 0.006; //2.6m/s
+	float kd = 0.000015; //2.6m/s
 
 	//    float diff = 0;
 	if (trace_flag == 1) {
@@ -105,7 +105,7 @@ void CourseOut(void) {
 	all_sensor = (sensor[0] + sensor[1] + sensor[2] + sensor[3] + sensor[4]
 			+ sensor[5] + sensor[6] + sensor[7] + sensor[8] + sensor[9]
 			+ sensor[10] + sensor[11]) / 12;
-	if (all_sensor > 890) {
+	if (all_sensor > 930) {
 		unable_cnt++;
 	} else
 		unable_cnt = 0;
@@ -115,7 +115,8 @@ void CourseOut(void) {
 		Marker_State = 0;
 		Start_Flag = false;
 		Stop_Flag = false;
-		bayado = 7; // mainにあるlionと同じ変数に戻す
+		lion = 0;
+		bayado = 6; // mainにあるlionと同じ変数に戻す
 //		Fan_Ctrl(0);
 		setMotor(0, 0);
 	} else {

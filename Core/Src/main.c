@@ -105,6 +105,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		motorCtrlFlip();
 		Fan_Ctrl();
 		//		updateSideSensorStatus();
+		CourseOut();
 
 		//		S_Sensor();
 	}
@@ -199,6 +200,7 @@ int main(void) {
 			Marker_State = 0;
 			Start_Flag = false;
 			Stop_Flag = false;
+			timer2 = 0;
 			HAL_Delay(3000);
 			bayado = lion; // モードを確定！
 
@@ -256,16 +258,23 @@ int main(void) {
 
 			break;
 		case 1:
-			FanMotor(2000);
-			setTarget(2.0);
-			startTracking(); //cyan
-			S_Sensor();
-			CourseOut();
+			FanMotor(4000);
+			if (timer2 >= 6000) {
+				setTarget(2.0);
+				startTracking(); //cyan
+				S_Sensor();
+				CourseOut();
+			}
 
 			break;
 		case 2:
 			FanMotor(4000);
-
+			if (timer2 >= 6000) {
+				setTarget(2.3);
+				startTracking(); //cyan
+				S_Sensor();
+				CourseOut();
+			}
 			break;
 		case 3:
 			setTarget(2.0);
@@ -283,13 +292,11 @@ int main(void) {
 			S_Sensor();
 			break;
 		case 6:
-			startTracking(); //white
-			S_Sensor();
+			stopTracking();
+			setMotor(0, 0);
+			FanMotor(0);
 			break;
 		case 7:
-			stopTracking();
-			HAL_Delay(3000);
-			Fan_Ctrl(0);
 			break;
 		default:
 
