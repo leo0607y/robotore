@@ -20,6 +20,7 @@
 #include "main.h"
 #include "adc.h"
 #include "dma.h"
+#include "spi.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
@@ -39,8 +40,10 @@
 #include "RunningSection.h"
 #include "TrackingPart.h"
 #include "TrackingSensor.h"
+#include "IMU20649.h"
 
 extern DMA_HandleTypeDef hdma_adc1; // DMAハンドルのextern宣言を追加
+extern SPI_HandleTypeDef hspi3;
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -69,6 +72,7 @@ uint32_t timer, timer1, timer2;
 bool calibration_mode = true; // キャリブレーション中フラグ
 int lion = 0;				  // mode変数を初期化
 int bayado = -1;
+int16_t gx, gy, gz;
 uint16_t cnt, cnt2 = 0;
 uint16_t sw, sw2 = 0;
 
@@ -106,7 +110,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		Fan_Ctrl();
 		//		updateSideSensorStatus();
 		CourseOut();
-
+		read_gyro_data(); // グローバル変数 xg, yg, zg を更新
+		read_accel_data(); // グローバル変数 xa, ya, za を更新
 		//		S_Sensor();
 	}
 	if (htim->Instance == TIM7) { // 0.1ms
@@ -132,6 +137,7 @@ void Init(void) {
 	HAL_TIM_Base_Start_IT(&htim6); // 1msタイマ開始
 	HAL_TIM_Base_Start_IT(&htim7); // 1msタイマ開始
 	Motor_Init();
+	IMU_Init();
 	LED(LED_BLUE);
 	Calibration();	 // キャリブレーションモード
 	HAL_Delay(1000); // 初期化後の待機時間
@@ -176,16 +182,17 @@ int main(void) {
 	MX_TIM6_Init();
 	MX_TIM7_Init();
 	MX_TIM1_Init();
+	MX_SPI3_Init();
 	/* USER CODE BEGIN 2 */
 	Init();
+
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 
 	while (1) {
-
-		// --- 右ボタン: lionをCaseとして確定 ---
+//		// --- 右ボタン: lionをCaseとして確定 ---
 		if (StatusR('R') == 2 && sw2 == 0) {
 			timer2 = 0;
 			sw2 = 1;
@@ -258,38 +265,47 @@ int main(void) {
 
 			break;
 		case 1:
-			FanMotor(4000);
-			if (timer2 >= 6000) {
-				setTarget(2.0);
-				startTracking(); //cyan
-				S_Sensor();
-				CourseOut();
-			}
+//			FanMotor(4000);
+//			if (timer2 >= 6000) {
+//				setTarget(0.9);
+//				startTracking(); //cyan
+//				S_Sensor();
+//			}
+			printf("Gyro X: %d, Y: %d, Z: %d\r\n", xg, yg, zg);
+			printf("Accel X: %d, Y: %d, Z: %d\r\n", xa, ya, za);
 
 			break;
 		case 2:
-			FanMotor(4000);
-			if (timer2 >= 6000) {
-				setTarget(2.3);
-				startTracking(); //cyan
-				S_Sensor();
-				CourseOut();
-			}
+//			FanMotor(4000);
+//			if (timer2 >= 6000) {
+//				setTarget(1.5);
+//				startTracking(); //cyan
+//				S_Sensor();
+//			}
 			break;
 		case 3:
-			setTarget(2.0);
-			startTracking(); //cyan
-			S_Sensor();
+			FanMotor(4000);
+			if (timer2 >= 6000) {
+				setTarget(1.8);
+				startTracking(); //cyan
+				S_Sensor();
+			}
 			break;
 		case 4:
-			setTarget(2.2);
-			startTracking(); //magenta
-			S_Sensor();
+			FanMotor(4000);
+			if (timer2 >= 6000) {
+				setTarget(4.0);
+				startTracking(); //cyan
+				S_Sensor();
+			}
 			break;
 		case 5:
-			setTarget(2.4);
-			startTracking(); //yellow
-			S_Sensor();
+			FanMotor(4000);
+			if (timer2 >= 6000) {
+				setTarget(5.0);
+				startTracking(); //cyan
+				S_Sensor();
+			}
 			break;
 		case 6:
 			stopTracking();

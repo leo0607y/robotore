@@ -83,4 +83,3 @@ void S_Sensor() {
 	prev_side_sensor_r = side_sensor_r;
 
 }
-

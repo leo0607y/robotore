@@ -7,8 +7,8 @@
 
 #define DELTA_T 0.001
 
-#define KP 1700.0
-#define KI 18.0
+#define KP 300.0
+#define KI 0
 
 float SpeedControl(float target_velocity, float current_velocity, float *integral) {
 	float e = target_velocity - current_velocity;
