@@ -276,12 +276,12 @@ int main(void) {
 
 			break;
 		case 2:
-//			FanMotor(4000);
-//			if (timer2 >= 6000) {
-//				setTarget(1.5);
-//				startTracking(); //cyan
-//				S_Sensor();
-//			}
+			FanMotor(4000);
+			if (timer2 >= 6000) {
+				setTarget(1.5);
+				startTracking(); //cyan
+				S_Sensor();
+			}
 			break;
 		case 3:
 			FanMotor(4000);
