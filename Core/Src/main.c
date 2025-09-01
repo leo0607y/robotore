@@ -118,6 +118,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		timer1++;
 
 		StorageBuffer();
+//		CourseOut();
 
 		//		Encoder_Update();
 		//				Sensor_Update();
