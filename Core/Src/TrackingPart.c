@@ -147,6 +147,7 @@ void CourseOut(void) {
 	}
 }
 
+
 void debugmotor(float mon_deb_l, float mon_deb_r) {
 	mo_l_Deb = mon_deb_l;
 	mo_r_Deb = mon_deb_r;
