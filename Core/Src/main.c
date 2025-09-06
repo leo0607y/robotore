@@ -272,9 +272,9 @@ int main(void) {
 //				startTracking(); //cyan
 //				S_Sensor();
 //			}
-			printf("Gyro X: %d, Y: %d, Z: %d\r\n", xg, yg, zg);
-			printf("Accel X: %d, Y: %d, Z: %d\r\n", xa, ya, za);
-
+//			printf("Gyro X: %d, Y: %d, Z: %d\r\n", xg, yg, zg);
+//			printf("Accel X: %d, Y: %d, Z: %d\r\n", xa, ya, za);
+			FanMotor(4000);
 			break;
 		case 2:
 			FanMotor(4000);
@@ -295,7 +295,7 @@ int main(void) {
 		case 4:
 			FanMotor(4000);
 			if (timer2 >= 6000) {
-				setTarget(4.0);
+				setTarget(1.9);
 				startTracking(); //cyan
 				S_Sensor();
 			}
@@ -303,7 +303,7 @@ int main(void) {
 		case 5:
 			FanMotor(4000);
 			if (timer2 >= 6000) {
-				setTarget(5.0);
+				setTarget(2.0);
 				startTracking(); //cyan
 				S_Sensor();
 			}

@@ -40,8 +40,8 @@ void ControlLineTracking(void) {
 	//	float kd = 0.00013;
 	//	float kp = 0.0039;//2.4m/s
 	//	float kd = 0.00003;//2.4m/s
-	float kp = 0.005;	// 2.6m/s
-	float kd = 0.00006; // 2.6m/s
+	float kp = 0.008;	// 2.6m/s
+	float kd = 0.00003; // 2.6m/s
 
 	//    float diff = 0;
 	if (trace_flag == 1) {
@@ -123,13 +123,13 @@ void stopTracking(void) {
 }
 
 void CourseOut(void) {
-//	volatile static uint16_t all_sensor;
-	uint16_t all_sensor;
+	volatile static uint16_t all_sensor;
+//	uint16_t all_sensor;
 	static uint16_t unable_cnt;
 	all_sensor = (sensor[0] + sensor[1] + sensor[2] + sensor[3] + sensor[4]
 			+ sensor[5] + sensor[6] + sensor[7] + sensor[8] + sensor[9]
 			+ sensor[10] + sensor[11]) / 12;
-	if (all_sensor > 920) {
+	if (all_sensor > 900) {
 		unable_cnt++;
 	} else {
 		unable_cnt = 0;
