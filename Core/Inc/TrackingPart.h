@@ -9,6 +9,8 @@
 #include "TrackingSensor.h"
 #include "main.h"
 
+extern int8_t trace_flag; // 追加
+
 void ControlLineTracking(void);
 void TraceFlip(void);
 

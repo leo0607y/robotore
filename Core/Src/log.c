@@ -1,16 +1,23 @@
 /*
  * log.c
  *
- *  Created on: Aug 22, 2025
- *      Author: reoch
+ * Created on: Aug 22, 2025
+ * Author: reoch
  */
-
 
 #include "log.h"
 #include <string.h>
+#include <stdio.h>
+#include <math.h>
+#include "Flash.h" //
+#include "IMU20649.h" //
+#include "Encoder.h" //
 
 static uint32_t log_write_address;
 static uint16_t log_count;
+
+// 曲率半径計算用の静的変数
+static float integrated_angle = 0.0f;     // 角度積算値[rad]
 
 /**
  * @brief ログ機能を初期化します。
@@ -19,6 +26,7 @@ void Log_Init(void) {
     // 書き込みアドレスの初期化
     log_write_address = LOG_FLASH_START_ADDR;
     log_count = 0;
+    integrated_angle = 0.0f;
 }
 
 /**
@@ -31,18 +39,14 @@ void Log_SaveData(LogData_t data) {
         return;
     }
 
-    HAL_FLASH_Unlock();
-
-    // 構造体を64ビットデータとして書き込む
-    // Flashメモリの書き込み単位は64bitなので、この処理が必要です
-    uint64_t *data_ptr = (uint64_t *)&data;
-    uint8_t num_words = sizeof(LogData_t) / sizeof(uint64_t);
-
-    for (uint8_t i = 0; i < num_words; i++) {
-        HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, log_write_address, data_ptr[i]);
-        log_write_address += sizeof(uint64_t);
-    }
-
+    // Flashにログデータを書き込む
+    HAL_FLASH_Unlock(); // Flash.cの内部でFLASH_Unlock()が呼ばれているため、ここではHAL関数を使用
+    HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, log_write_address, data.left_encoder_count);
+    log_write_address += sizeof(int32_t);
+    HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, log_write_address, data.right_encoder_count);
+    log_write_address += sizeof(int32_t);
+    FLASH_Write_Word_F(log_write_address, data.curvature_radius); //
+    log_write_address += sizeof(float);
     HAL_FLASH_Lock();
 
     // ログエントリ数を更新
@@ -68,21 +72,13 @@ void Log_ReadData(LogData_t *data, uint16_t index) {
  * @brief Flashメモリのログ領域を全て消去します。
  */
 void Log_Erase(void) {
-    FLASH_EraseInitTypeDef EraseInitStruct;
-    uint32_t SectorError;
-
-    EraseInitStruct.TypeErase    = FLASH_TYPEERASE_SECTORS;
-    EraseInitStruct.VoltageRange = FLASH_VOLTAGE_RANGE_3;
-    EraseInitStruct.Sector       = LOG_FLASH_SECTOR;
-    EraseInitStruct.NbSectors    = 1;
-
-    HAL_FLASH_Unlock();
-    HAL_FLASHEx_Erase(&EraseInitStruct, &SectorError);
-    HAL_FLASH_Lock();
+    // Flash.cのFLASH_EreaseSector関数を利用
+    FLASH_EreaseSector(LOG_FLASH_SECTOR); //
 
     // 状態をリセット
     log_write_address = LOG_FLASH_START_ADDR;
     log_count = 0;
+    integrated_angle = 0.0f;
 }
 
 /**
@@ -91,4 +87,51 @@ void Log_Erase(void) {
  */
 uint16_t Log_GetCount(void) {
     return log_count;
+}
+
+/**
+ * @brief IMUの角速度と走行距離から曲率半径を計算し、Flashメモリに保存します。
+ * この関数は、1msごとに呼び出されることを想定しています。
+ */
+void Log_CalculateAndSave(void) {
+    // IMU20649.h/cで定義されているグローバル変数zgを使用
+    float angular_velocity_z = (float)zg / 16.4f; // 4000dpsレンジのスケールファクター
+    integrated_angle += angular_velocity_z * 0.001f; // TIM6(1ms)ごとに呼び出されると仮定
+
+    if (getDistance10mm() >= 10.0f) {
+        LogData_t new_log;
+
+        // 既存のログデータ項目を埋める
+        new_log.left_encoder_count = enc_l_total; //
+        new_log.right_encoder_count = enc_r_total; //
+
+        if (fabsf(integrated_angle) > 0.001f) {
+            new_log.curvature_radius = getDistance10mm() / integrated_angle;
+        } else {
+            new_log.curvature_radius = 0.0f; // 直進と見なす
+        }
+
+        Log_SaveData(new_log);
+
+        // ログ保存後、距離と角度をリセット
+        clearDistance10mm(); //
+        integrated_angle = 0.0f;
+    }
+}
+
+/**
+ * @brief Flashメモリに保存されているログをシリアル通信で出力します。
+ * bayadoが3の時に呼び出されることを想定しています。
+ */
+void Log_PrintData_To_Serial(void) {
+    LogData_t log_entry;
+    printf("Flash Log Data (%d entries):\r\n", log_count);
+    for (uint16_t i = 0; i < log_count; i++) {
+        Log_ReadData(&log_entry, i);
+        printf("Entry %d: Left Enc: %ld, Right Enc: %ld, Curvature Radius: %.2f\r\n",
+               i,
+               log_entry.left_encoder_count,
+               log_entry.right_encoder_count,
+               log_entry.curvature_radius);
+    }
 }

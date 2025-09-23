@@ -1,8 +1,8 @@
 /*
  * log.h
  *
- *  Created on: Aug 22, 2025
- *      Author: reoch
+ * Created on: Aug 22, 2025
+ * Author: reoch
  */
 
 #ifndef INC_LOG_H_
@@ -16,6 +16,7 @@ typedef struct {
     float right_velocity;
     int32_t left_encoder_count;
     int32_t right_encoder_count;
+    float curvature_radius; // 追加：曲率半径
 } LogData_t;
 
 // Flashメモリのログ領域設定（STM32F405VGを想定）
@@ -31,6 +32,7 @@ void Log_SaveData(LogData_t data);
 void Log_ReadData(LogData_t *data, uint16_t index);
 void Log_Erase(void);
 uint16_t Log_GetCount(void);
-
+void Log_CalculateAndSave(void);      // 新規：曲率半径を計算して保存
+void Log_PrintData_To_Serial(void);   // 新規：シリアル出力
 
 #endif /* INC_LOG_H_ */

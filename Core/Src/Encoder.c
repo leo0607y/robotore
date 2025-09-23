@@ -80,7 +80,7 @@ void Encoder_Update(void)
     TIM4->CNT = CNT_OFFSET;
 }
 
-/**
+/*
  * @brief 現在の左右エンコーダカウント値を取得
  * @param cnt_l 左カウント格納先ポインタ
  * @param cnt_r 右カウント格納先ポインタ

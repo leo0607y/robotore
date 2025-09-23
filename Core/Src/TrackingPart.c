@@ -4,7 +4,7 @@
 
 #define DELTA_T 0.001
 
-static int8_t trace_flag;
+int8_t trace_flag;
 static uint8_t i_clear_flag;
 float tracking_term; // static修飾子を削除
 static bool Unable_to_run_flag;

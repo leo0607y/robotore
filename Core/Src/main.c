@@ -41,6 +41,7 @@
 #include "TrackingPart.h"
 #include "TrackingSensor.h"
 #include "IMU20649.h"
+#include "log.h"
 
 extern DMA_HandleTypeDef hdma_adc1; // DMAハンドルのextern宣言を追加
 extern SPI_HandleTypeDef hspi3;
@@ -78,6 +79,7 @@ uint16_t sw, sw2 = 0;
 
 extern bool Start_Flag;
 extern bool Stop_Flag;
+extern int8_t trace_flag;
 extern uint8_t Marker_State;
 extern volatile uint32_t time_ms;
 
@@ -108,6 +110,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		TraceFlip();
 		motorCtrlFlip();
 		Fan_Ctrl();
+		if (trace_flag) {
+		            Log_CalculateAndSave();
+		        }
+
 		//		updateSideSensorStatus();
 		CourseOut();
 		read_gyro_data(); // グローバル変数 xg, yg, zg を更新
@@ -139,6 +145,7 @@ void Init(void) {
 	HAL_TIM_Base_Start_IT(&htim7); // 1msタイマ開始
 	Motor_Init();
 	IMU_Init();
+	Log_Init();
 	LED(LED_BLUE);
 	Calibration();	 // キャリブレーションモード
 	HAL_Delay(1000); // 初期化後の待機時間
@@ -211,6 +218,7 @@ int main(void) {
 			timer2 = 0;
 			HAL_Delay(3000);
 			bayado = lion; // モードを確定！
+			Log_Erase();
 
 			sw2 = 0;
 		}
@@ -279,18 +287,19 @@ int main(void) {
 		case 2:
 			FanMotor(4000);
 			if (timer2 >= 6000) {
-				setTarget(1.5);
+				setTarget(1.0);
 				startTracking(); //cyan
 				S_Sensor();
 			}
 			break;
 		case 3:
-			FanMotor(4000);
-			if (timer2 >= 6000) {
-				setTarget(1.8);
-				startTracking(); //cyan
-				S_Sensor();
-			}
+//			FanMotor(4000);
+//			if (timer2 >= 6000) {
+//				setTarget(1.8);
+//				startTracking(); //cyan
+//				S_Sensor();
+			Log_PrintData_To_Serial();
+
 			break;
 		case 4:
 			FanMotor(4000);
