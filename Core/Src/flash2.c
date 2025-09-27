@@ -34,15 +34,17 @@ void eraseFlash( void )
 */
 void writeFlash(uint32_t address, uint8_t *data, uint32_t size  )
 {
-	HAL_FLASH_Unlock();		// unlock flash
-	eraseFlash();			// erease sector11
+	 HAL_FLASH_Unlock();
+	  eraseFlash();
 
-  for ( uint32_t add = address; add < (address + size); add++ ){
-		HAL_FLASH_Program(FLASH_TYPEPROGRAM_BYTE, add, *data); // write byte
-    data++;  // add data pointer
-	}
+	  uint32_t *source_data = (uint32_t *)data; // uint32_tポインタにキャスト
+	  uint32_t num_words = size / sizeof(uint32_t); // 書き込むワード数を計算
 
-	HAL_FLASH_Lock();		// lock flash
+	  for (uint32_t i = 0; i < num_words; i++) {
+	    HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, address + (i * sizeof(uint32_t)), source_data[i]);
+	  }
+
+	  HAL_FLASH_Lock();
 }
 
 /*

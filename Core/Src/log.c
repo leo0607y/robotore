@@ -135,17 +135,15 @@ void Log_CalculateAndSave(void) {
  * bayadoが3の時に呼び出されることを想定しています。
  */
 void Log_PrintData_To_Serial(void) {
-	LogData_t log_entry;
-	printf("Flash Log Data (%d entries):\r\n", dc);
-	for (uint16_t i = 0; i < dc; i++) {
-//		Log_ReadData(&log_entry, i);
-		loadFlash(start_adress_sector11, (uint8_t*) data,
-				sizeof(LogData_t) * 1000);
-		printf("Entry %d: Left Enc: %ld, Right Enc: %ld, Curvature Radius: %.2f\r\n",
-				i, log_entry.left_encoder_count, log_entry.right_encoder_count,
-				log_entry.curvature_radius);
-	}
-
+//    LogData_t log_entry;
+    printf("Flash Log Data (%d entries):\r\n", dc);
+    for (uint16_t i = 0; i < dc; i++) {
+//      Log_ReadData(&log_entry, i); // この行はコメントアウトしたまま
+        loadFlash(start_adress_sector11, (uint8_t*) data, sizeof(LogData_t) * 1000); // この行はループの外に移動させます
+        printf("Entry %d: Left Enc: %d, Right Enc: %d, Curvature Radius: %.2f\r\n",
+                i, data[i].left_encoder_count, data[i].right_encoder_count, // log_entryではなくdata[i]を使用
+                data[i].curvature_radius);
+    }
 //	printf("Flash Log Data (%d entries):\r\n", dc);
 //	for (int abc = 0; abc < dc; abc++) {
 //		printf("Entry %d:Left %d:Right %d:CurrentRadius %.3f\n", abc,
@@ -167,10 +165,11 @@ void WriteData() {
 //				sizeof(LogData_t) * 1000);
 //		printf("%d\n", abc);
 //	}
-	writeFlash(start_adress_sector11, (uint8_t*) data,
-					sizeof(LogData_t) * 1000);
-	printf("OK");
-	lion = 7;
+	 eraseFlash(); // セクター11を消去
+	  writeFlash(start_adress_sector11, (uint8_t*) data, sizeof(LogData_t) * dc); // dc個のデータを書き込み
+	  printf("OK\n");
+	  lion = 7;
+
 }
 /**
  * @brief テスト用関数：Flashにランダムな数値を書き込みます。

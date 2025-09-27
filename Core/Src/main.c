@@ -286,6 +286,7 @@ int main(void) {
 			FanMotor(4000);
 			break;
 		case 2:
+			 printf("Mode 2: Writing data...\r\n");
 			WriteData();
 			bayado = -1;
 			break;
