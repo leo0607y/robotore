@@ -6,15 +6,22 @@
  */
 
 #include "log.h"
+#include "main.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <math.h>
+#include <stdlib.h> // rand()関数を使用するために追加
 #include "Flash.h" //
 #include "IMU20649.h" //
 #include "Encoder.h" //
+#include "flash2.h"
 
 static uint32_t log_write_address;
 static uint16_t log_count;
+static LogData_t data[1000];
+static int dc = 0;
+extern int lion;
 
 // 曲率半径計算用の静的変数
 static float integrated_angle = 0.0f;     // 角度積算値[rad]
@@ -23,10 +30,10 @@ static float integrated_angle = 0.0f;     // 角度積算値[rad]
  * @brief ログ機能を初期化します。
  */
 void Log_Init(void) {
-    // 書き込みアドレスの初期化
-    log_write_address = LOG_FLASH_START_ADDR;
-    log_count = 0;
-    integrated_angle = 0.0f;
+	// 書き込みアドレスの初期化
+	log_write_address = LOG_FLASH_START_ADDR;
+	log_count = 0;
+	integrated_angle = 0.0f;
 }
 
 /**
@@ -34,23 +41,22 @@ void Log_Init(void) {
  * @param data 保存するログデータ
  */
 void Log_SaveData(LogData_t data) {
-    if (log_count >= LOG_MAX_ENTRIES) {
-        // ログバッファが満杯
-        return;
-    }
+	if (log_count >= LOG_MAX_ENTRIES) {
+		// ログバッファが満杯
+		return;
+	}
 
-    // Flashにログデータを書き込む
-    HAL_FLASH_Unlock(); // Flash.cの内部でFLASH_Unlock()が呼ばれているため、ここではHAL関数を使用
-    HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, log_write_address, data.left_encoder_count);
-    log_write_address += sizeof(int32_t);
-    HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, log_write_address, data.right_encoder_count);
-    log_write_address += sizeof(int32_t);
-    FLASH_Write_Word_F(log_write_address, data.curvature_radius); //
-    log_write_address += sizeof(float);
-    HAL_FLASH_Lock();
+	// Flashにログデータを書き込む
+	// 個々の書き込み関数がロック/アンロックを管理するため、ここでは行わない
+	FLASH_Write_Word_S(log_write_address, data.left_encoder_count);
+	log_write_address += sizeof(int32_t);
+	FLASH_Write_Word_S(log_write_address, data.right_encoder_count);
+	log_write_address += sizeof(int32_t);
+	FLASH_Write_Word_F(log_write_address, data.curvature_radius);
+	log_write_address += sizeof(float);
 
-    // ログエントリ数を更新
-    log_count++;
+	// ログエントリ数を更新
+	log_count++;
 }
 
 /**
@@ -59,26 +65,26 @@ void Log_SaveData(LogData_t data) {
  * @param index 読み出すデータのインデックス
  */
 void Log_ReadData(LogData_t *data, uint16_t index) {
-    if (index >= log_count) {
-        // インデックスが無効
-        return;
-    }
+	if (index >= log_count) {
+		// インデックスが無効
+		return;
+	}
 
-    uint32_t read_address = LOG_FLASH_START_ADDR + (index * sizeof(LogData_t));
-    memcpy(data, (void *)read_address, sizeof(LogData_t));
+	uint32_t read_address = LOG_FLASH_START_ADDR + (index * sizeof(LogData_t));
+	memcpy(data, (void*) read_address, sizeof(LogData_t));
 }
 
 /**
  * @brief Flashメモリのログ領域を全て消去します。
  */
 void Log_Erase(void) {
-    // Flash.cのFLASH_EreaseSector関数を利用
-    FLASH_EreaseSector(LOG_FLASH_SECTOR); //
+	// Flash.cのFLASH_EreaseSector関数を利用
+	FLASH_EreaseSector(LOG_FLASH_SECTOR);
 
-    // 状態をリセット
-    log_write_address = LOG_FLASH_START_ADDR;
-    log_count = 0;
-    integrated_angle = 0.0f;
+	// 状態をリセット
+	log_write_address = LOG_FLASH_START_ADDR;
+	log_count = 0;
+	integrated_angle = 0.0f;
 }
 
 /**
@@ -86,7 +92,7 @@ void Log_Erase(void) {
  * @return ログの数
  */
 uint16_t Log_GetCount(void) {
-    return log_count;
+	return log_count;
 }
 
 /**
@@ -94,29 +100,34 @@ uint16_t Log_GetCount(void) {
  * この関数は、1msごとに呼び出されることを想定しています。
  */
 void Log_CalculateAndSave(void) {
-    // IMU20649.h/cで定義されているグローバル変数zgを使用
-    float angular_velocity_z = (float)zg / 16.4f; // 4000dpsレンジのスケールファクター
-    integrated_angle += angular_velocity_z * 0.001f; // TIM6(1ms)ごとに呼び出されると仮定
 
-    if (getDistance10mm() >= 10.0f) {
-        LogData_t new_log;
+	// IMU20649.h/cで定義されているグローバル変数zgを使用
+	float angular_velocity_z = (float) zg / 16.4f; // 4000dpsレンジのスケールファクター
+	integrated_angle += angular_velocity_z * 0.001f; // TIM6(1ms)ごとに呼び出されると仮定
 
-        // 既存のログデータ項目を埋める
-        new_log.left_encoder_count = enc_l_total; //
-        new_log.right_encoder_count = enc_r_total; //
+//	printf("%f\n", getDistance());
 
-        if (fabsf(integrated_angle) > 0.001f) {
-            new_log.curvature_radius = getDistance10mm() / integrated_angle;
-        } else {
-            new_log.curvature_radius = 0.0f; // 直進と見なす
-        }
+	if (getDistance() >= 10.0f / 1000.0f) {
+		LogData_t new_log;
 
-        Log_SaveData(new_log);
+		// 既存のログデータ項目を埋める
+		new_log.left_encoder_count = enc_l_total; //
+		new_log.right_encoder_count = enc_r_total; //
 
-        // ログ保存後、距離と角度をリセット
-        clearDistance10mm(); //
-        integrated_angle = 0.0f;
-    }
+		if (fabsf(integrated_angle) > 0.001f) {
+			new_log.curvature_radius = getDistance() / integrated_angle;
+		} else {
+			new_log.curvature_radius = 0.0f; // 直進と見なす
+		}
+
+//        Log_SaveData(new_log);
+		data[dc] = new_log;
+
+		// ログ保存後、距離と角度をリセット
+		clearDistance(); //
+		integrated_angle = 0.0f;
+		dc++;
+	}
 }
 
 /**
@@ -124,14 +135,71 @@ void Log_CalculateAndSave(void) {
  * bayadoが3の時に呼び出されることを想定しています。
  */
 void Log_PrintData_To_Serial(void) {
-    LogData_t log_entry;
-    printf("Flash Log Data (%d entries):\r\n", log_count);
-    for (uint16_t i = 0; i < log_count; i++) {
-        Log_ReadData(&log_entry, i);
-        printf("Entry %d: Left Enc: %ld, Right Enc: %ld, Curvature Radius: %.2f\r\n",
-               i,
-               log_entry.left_encoder_count,
-               log_entry.right_encoder_count,
-               log_entry.curvature_radius);
-    }
+	LogData_t log_entry;
+	printf("Flash Log Data (%d entries):\r\n", dc);
+	for (uint16_t i = 0; i < dc; i++) {
+//		Log_ReadData(&log_entry, i);
+		loadFlash(start_adress_sector11, (uint8_t*) data,
+				sizeof(LogData_t) * 1000);
+		printf("Entry %d: Left Enc: %ld, Right Enc: %ld, Curvature Radius: %.2f\r\n",
+				i, log_entry.left_encoder_count, log_entry.right_encoder_count,
+				log_entry.curvature_radius);
+	}
+
+//	printf("Flash Log Data (%d entries):\r\n", dc);
+//	for (int abc = 0; abc < dc; abc++) {
+//		printf("Entry %d:Left %d:Right %d:CurrentRadius %.3f\n", abc,
+//				data[abc].left_encoder_count, data[abc].right_encoder_count,
+//				data[abc].curvature_radius);
+//	}
+
+}
+void WriteData() {
+//	for (int abc = 0; abc < dc; abc++) {
+////		FLASH_Write_Word_S(log_write_address, data[abc].left_encoder_count);
+////			log_write_address += sizeof(int16_t);
+////			FLASH_Write_Word_S(log_write_address, data[abc].right_encoder_count);
+////			log_write_address += sizeof(int16_t);
+////			FLASH_Write_Word_F(log_write_address, data[abc].curvature_radius);
+////			log_write_address += sizeof(float);
+//
+//		writeFlash(start_adress_sector11, (uint8_t*) data,
+//				sizeof(LogData_t) * 1000);
+//		printf("%d\n", abc);
+//	}
+	writeFlash(start_adress_sector11, (uint8_t*) data,
+					sizeof(LogData_t) * 1000);
+	printf("OK");
+	lion = 7;
+}
+/**
+ * @brief テスト用関数：Flashにランダムな数値を書き込みます。
+ */
+void Log_Test_Write(void) {
+	uint32_t test_address = LOG_FLASH_START_ADDR;
+	srand(HAL_GetTick()); // 乱数のシードを初期化
+	printf("Writing random numbers to Flash...\r\n");
+
+	for (int i = 0; i < 10; i++) {
+		uint32_t random_value = rand();
+		FLASH_Write_Word(test_address, random_value);
+		test_address += sizeof(uint32_t);
+	}
+	printf("Writing complete.\r\n");
+}
+
+/**
+ * @brief テスト用関数：Flashから数値を読み出してシリアルに出力します。
+ */
+void Log_Test_Read_And_Print(void) {
+	uint32_t test_address = LOG_FLASH_START_ADDR;
+	uint32_t read_value;
+	printf("Reading from Flash...\r\n");
+
+	for (int i = 0; i < 10; i++) {
+		read_value = *(__IO uint32_t*) test_address;
+		printf("Address 0x%lX: 0x%lX\r\n", test_address, read_value);
+		test_address += sizeof(uint32_t);
+	}
+	printf("Reading complete.\r\n");
 }

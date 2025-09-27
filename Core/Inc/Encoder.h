@@ -48,8 +48,8 @@ void getEncoderCnt(int16_t *cnt_l, int16_t *cnt_r);
 void getEncoderTotal(int16_t *total_l, int16_t *total_r);
 
 // --- 距離・判定用API ---
-float getDistance10mm(void);            // 10mm単位の距離取得
-void clearDistance10mm(void);           // 10mm距離リセット
+float getDistance(void);            // 10mm単位の距離取得
+void clearDistance(void);           // 10mm距離リセット
 float getCrossLineIgnoreDistance(void); // クロスライン無視距離取得
 float getSideLineIgnoreDistance(void);  // サイドライン無視距離取得
 float getTotalDistance();               // 総走行距離取得

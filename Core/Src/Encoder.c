@@ -30,7 +30,7 @@ int32_t enc_r_total = 0;
 // --- エンコーダカウント・距離管理用変数 ---
 static int16_t enc_l_cnt, enc_r_cnt;     // カウント値・累積値
 static float distance_1ms;               // 1msごとの移動距離
-static float distance_10mm;              // 10mm単位の距離
+static float distance;              // 10mm単位の距離
 static float sab_distance_10mm;          // サブ用10mm距離
 static float total_distance;             // 総走行距離
 static float goal_judge_distance;        // ゴール判定用距離
@@ -67,7 +67,7 @@ void Encoder_Update(void)
     enc_r_total += enc_r_cnt;
     // 距離計算（両輪平均）
     distance_1ms = DISTANCE_PER_CNT * (enc_l_cnt + enc_r_cnt) / 2;
-    distance_10mm += distance_1ms;
+    distance += distance_1ms;
     sab_distance_10mm += distance_1ms;
     total_distance += distance_1ms;
     goal_judge_distance += distance_1ms;
@@ -180,14 +180,14 @@ void resetEncoderCnt(void)
     TIM4->CNT = CNT_OFFSET;
 }
 
-float getDistance10mm(void)
+float getDistance(void)
 {
-    return distance_10mm;
+    return distance;
 }
 
-void clearDistance10mm(void)
+void clearDistance(void)
 {
-    distance_10mm = 0;
+    distance = 0;
 }
 
 float getspeedcount(void)

@@ -42,6 +42,7 @@
 #include "TrackingSensor.h"
 #include "IMU20649.h"
 #include "log.h"
+#include "flash2.h"
 
 extern DMA_HandleTypeDef hdma_adc1; // DMAハンドルのextern宣言を追加
 extern SPI_HandleTypeDef hspi3;
@@ -111,8 +112,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		motorCtrlFlip();
 		Fan_Ctrl();
 		if (trace_flag) {
-		            Log_CalculateAndSave();
-		        }
+			Log_CalculateAndSave();
+		}
 
 		//		updateSideSensorStatus();
 		CourseOut();
@@ -218,7 +219,6 @@ int main(void) {
 			timer2 = 0;
 			HAL_Delay(3000);
 			bayado = lion; // モードを確定！
-			Log_Erase();
 
 			sw2 = 0;
 		}
@@ -271,7 +271,8 @@ int main(void) {
 
 		switch (bayado) {
 		case 0:
-
+//			Log_Erase();
+//			bayado = -1;
 			break;
 		case 1:
 //			FanMotor(4000);
@@ -285,12 +286,8 @@ int main(void) {
 			FanMotor(4000);
 			break;
 		case 2:
-			FanMotor(4000);
-			if (timer2 >= 6000) {
-				setTarget(1.0);
-				startTracking(); //cyan
-				S_Sensor();
-			}
+			WriteData();
+			bayado = -1;
 			break;
 		case 3:
 //			FanMotor(4000);
@@ -299,18 +296,20 @@ int main(void) {
 //				startTracking(); //cyan
 //				S_Sensor();
 			Log_PrintData_To_Serial();
+//			Log_Test_Read_And_Print();
+			bayado = -1; // 1回実行したらモードを終了
 
 			break;
 		case 4:
 			FanMotor(4000);
 			if (timer2 >= 6000) {
-				setTarget(1.9);
+				setTarget(1.3);
 				startTracking(); //cyan
 				S_Sensor();
 			}
 			break;
 		case 5:
-			FanMotor(4000);
+			startTracking(); //cyan
 			if (timer2 >= 6000) {
 				setTarget(2.0);
 				startTracking(); //cyan
@@ -323,6 +322,9 @@ int main(void) {
 			FanMotor(0);
 			break;
 		case 7:
+			eraseFlash();
+			printf("Flash memory erased.\r\n");
+			bayado = -1;
 			break;
 		default:
 
