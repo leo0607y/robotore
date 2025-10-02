@@ -304,15 +304,16 @@ int main(void) {
 		case 4:
 			FanMotor(4000);
 			if (timer2 >= 6000) {
-				setTarget(1.3);
+				setTarget(1.6);
 				startTracking(); //cyan
 				S_Sensor();
 			}
 			break;
 		case 5:
+			FanMotor(4000);
 			startTracking(); //cyan
 			if (timer2 >= 6000) {
-				setTarget(2.0);
+				setTarget(0.0);
 				startTracking(); //cyan
 				S_Sensor();
 			}

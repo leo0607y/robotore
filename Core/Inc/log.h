@@ -16,7 +16,7 @@ typedef struct {
 // 例: Sector 5（アドレス 0x08020000）
 #define LOG_FLASH_SECTOR        FLASH_SECTOR_5
 #define LOG_FLASH_START_ADDR    (0x08020000U)
-#define LOG_MAX_ENTRIES         (1000)  // 保存できるログエントリの最大数
+#define LOG_MAX_ENTRIES         (4000)  // 保存できるログエントリの最大数
 
 // 関数プロトタイプ宣言
 void Log_Init(void);

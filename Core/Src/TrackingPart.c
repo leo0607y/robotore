@@ -20,6 +20,7 @@ extern uint8_t Marker_State;
 
 // mainのlion変数をextern宣言
 extern int bayado;
+extern int lion;
 float diff = 0;
 
 static float integral_left = 0.0;
@@ -40,8 +41,8 @@ void ControlLineTracking(void) {
 	//	float kd = 0.00013;
 	//	float kp = 0.0039;//2.4m/s
 	//	float kd = 0.00003;//2.4m/s
-	float kp = 0.008;	// 2.6m/s
-	float kd = 0.00003; // 2.6m/s
+	float kp = 0.018;	// 2.6m/s
+	float kd = 0.00008; // 2.6m/s
 
 	//    float diff = 0;
 	if (trace_flag == 1) {
@@ -135,12 +136,13 @@ void CourseOut(void) {
 		unable_cnt = 0;
 	}
 
-	if (unable_cnt >= 40) {
+	if (unable_cnt >= 50) {
 		Unable_to_run_flag = true;
 		Marker_State = 0;
 		Start_Flag = false;
 		Stop_Flag = false;
 		bayado = 6; // mainにあるlionと同じ変数に戻す
+		lion = 1;
 		setMotor(0, 0);
 	} else {
 		Unable_to_run_flag = false;

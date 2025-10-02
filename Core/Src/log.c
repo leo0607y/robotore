@@ -19,7 +19,7 @@
 
 static uint32_t log_write_address;
 static uint16_t log_count;
-static LogData_t data[1000];
+static LogData_t data[4000];
 static int dc = 0;
 extern int lion;
 

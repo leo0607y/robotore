@@ -69,7 +69,7 @@ void S_Sensor() {
 			uint32_t dt = current_time - RightDetectedTime;
 			if (dt > 100) {
 				Stop_Flag = true;
-				lion = 7;
+				lion = 2;
 				bayado = 6;
 				setMotor(0, 0);
 				Marker_State = 0;
