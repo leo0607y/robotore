@@ -39,10 +39,10 @@ void ControlLineTracking(void) {
 	static float i;
 	//	float kp = 0.0072;
 	//	float kd = 0.00013;
-	//	float kp = 0.0039;//2.4m/s
-	//	float kd = 0.00003;//2.4m/s
-	float kp = 0.018;	// 2.6m/s
-	float kd = 0.00008; // 2.6m/s
+		float kp = 0.015;//2.4m/s
+		float kd = 0.00005;//2.4m/s
+//	float kp = 0.018;	// 2.6m/s
+//	float kd = 0.00008; // 2.6m/s
 
 	//    float diff = 0;
 	if (trace_flag == 1) {

@@ -311,7 +311,6 @@ int main(void) {
 			break;
 		case 5:
 			FanMotor(4000);
-			startTracking(); //cyan
 			if (timer2 >= 6000) {
 				setTarget(0.0);
 				startTracking(); //cyan
