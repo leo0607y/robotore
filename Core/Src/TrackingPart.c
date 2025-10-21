@@ -42,7 +42,7 @@ void ControlLineTracking(void) {
 	static float i;
 	//	float kp = 0.0072;
 	//	float kd = 0.00013;
-	float kp = 0.0205;	//2.4m/s
+	float kp = 0.0206;	//2.4m/s
 	float kd = 0.000044;	//2.4m/s
 //	float kp = 0.018;	// 2.6m/s
 //	float kd = 0.00008; // 2.6m/s

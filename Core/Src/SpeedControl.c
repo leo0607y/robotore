@@ -7,7 +7,7 @@
 
 #define DELTA_T 0.001
 
-#define KP 240.0
+#define KP 250.0
 #define KI 0.1
 
 float SpeedControl(float target_velocity, float current_velocity, float *integral) {

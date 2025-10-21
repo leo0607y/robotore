@@ -17,6 +17,14 @@
 #include "Encoder.h" //
 #include "flash2.h"
 
+#define MIN_COURSE_RADIUS_M     (0.09f)      // R10cm（コースの最小曲率半径 - 確定値）
+// コースの最大半径が不明なため、実用上の上限を100mに設定。
+// これを超える値は、走行中のノイズによる「ほぼ直線」と見なす。
+#define MAX_PRACTICAL_RADIUS_M  (10.0f)
+
+#define ZG_FILTER_ALPHA 0.8f // フィルタ係数 (0.1から調整を推奨)
+static float filtered_angular_velocity = 0.0f;
+
 static uint32_t log_write_address;
 static uint16_t log_count;
 static LogData_t data[4000];
@@ -102,24 +110,41 @@ uint16_t Log_GetCount(void) {
  */
 void Log_CalculateAndSave(void) {
 
-	// IMU20649.h/cで定義されているグローバル変数zgを使用
-	float angular_velocity_z = ((float) zg - zg_offset) / 16.4f; // 4000dpsレンジのスケールファクター
-	integrated_angle += angular_velocity_z * 0.001f; // TIM6(1ms)ごとに呼び出されると仮定
+	// 1. 生の角速度（オフセット補正後）を計算
+		float raw_angular_velocity_z = ((float) zg - zg_offset) / 16.4f;
 
+		// 2. IIRフィルタを適用してノイズ除去（filtered_angular_velocityを更新）
+	    // filtered_angular_velocity = (1 - α) * pre_filtered_value + α * raw_value
+		filtered_angular_velocity = (1.0f - ZG_FILTER_ALPHA) * filtered_angular_velocity + ZG_FILTER_ALPHA * raw_angular_velocity_z;
+
+		// 3. 角度積算には平滑化された値を使用
+		integrated_angle += filtered_angular_velocity * 0.001f;
 //	printf("%f\n", getDistance());
 
 	if (getDistance() >= 10.0f / 1000.0f) {
-		LogData_t new_log;
+			LogData_t new_log;
 
-		// 既存のログデータ項目を埋める
-		new_log.left_encoder_count = enc_l_total; //
-		new_log.right_encoder_count = enc_r_total; //
+			// 既存のログデータ項目を埋める
+			new_log.left_encoder_count = enc_l_total; //
+			new_log.right_encoder_count = enc_r_total; //
 
-		if (fabsf(integrated_angle) > 0.001f) {
-			new_log.curvature_radius = getDistance() / integrated_angle;
-		} else {
-			new_log.curvature_radius = 0.0f; // 直進と見なす
-		}
+			if (fabsf(integrated_angle) > 0.001f) {
+				float calculated_radius = getDistance() / integrated_angle;
+	            float abs_calculated_radius = fabsf(calculated_radius); // 絶対値を取得
+
+	            // ★★★ 修正: 上限フィルタリングの追加 ★★★
+	            // |R| < 0.09m（最小半径未満） OR |R| > 10.0m（実用最大半径超）の場合、直線(0.0f)として記録
+	            if (abs_calculated_radius < MIN_COURSE_RADIUS_M || abs_calculated_radius > MAX_PRACTICAL_RADIUS_M) {
+	                new_log.curvature_radius = 0.0f; // ノイズ/実質的な直線
+	            } else {
+	                // 0.09m <= |R| <= 10.0m の有効なカーブ
+	                new_log.curvature_radius = calculated_radius;
+	            }
+	            // ★★★ 修正はここまで ★★★
+
+			} else {
+				new_log.curvature_radius = 0.0f; // integrated_angle が極小（厳密な直線）
+			}
 
 //        Log_SaveData(new_log);
 		data[dc] = new_log;
