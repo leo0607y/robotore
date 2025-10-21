@@ -1,4 +1,5 @@
 #include "RunningSection.h"
+#include "TrackingPart.h"
 
 // static float velocity_table[5000];
 // static int16_t acceleration_table[5000];
@@ -48,7 +49,7 @@ void S_Sensor() {
 			Marker_State = 1;
 			start_passed_time = HAL_GetTick();  // スタート時刻を保存
 		}
-	} else if (Start_Flag && !Stop_Flag) {
+	}else if (Start_Flag && !Stop_Flag && !is_on_tracking_curve) {
 		bool rising_edge_r = (!prev_side_sensor_r && side_sensor_r);
 		uint32_t current_time = HAL_GetTick();
 

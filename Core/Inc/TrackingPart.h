@@ -10,6 +10,7 @@
 #include "main.h"
 
 extern int8_t trace_flag; // 追加
+extern bool is_on_tracking_curve;
 
 void ControlLineTracking(void);
 void TraceFlip(void);

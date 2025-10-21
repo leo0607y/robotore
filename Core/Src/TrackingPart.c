@@ -1,11 +1,14 @@
 #include "TrackingPart.h"
 #include "Encoder.h"
 #include <stdio.h>
+#include <math.h>
 
 #define DELTA_T 0.001
+#define STRAIGHT_DIFF_THRESHOLD 100.0f
 
 int8_t trace_flag;
 static uint8_t i_clear_flag;
+bool is_on_tracking_curve = false;
 float tracking_term; // static修飾子を削除
 static bool Unable_to_run_flag;
 static float mo_l_Deb;
@@ -39,8 +42,8 @@ void ControlLineTracking(void) {
 	static float i;
 	//	float kp = 0.0072;
 	//	float kd = 0.00013;
-		float kp = 0.015;//2.4m/s
-		float kd = 0.00005;//2.4m/s
+	float kp = 0.0204;	//2.4m/s
+	float kd = 0.000043;	//2.4m/s
 //	float kp = 0.018;	// 2.6m/s
 //	float kd = 0.00008; // 2.6m/s
 
@@ -60,11 +63,20 @@ void ControlLineTracking(void) {
 				- ((sensor[6] + sensor[7] * 1.0 + sensor[8] * 1.0
 						+ sensor[9] * 1.0 + sensor[10] * 1.0 + sensor[11] * 1.0)
 						/ 5);
+		float abs_diff = fabsf(diff); // floatの絶対値を取得
+
+		// |diff| >= 100.0f の場合を「カーブ走行中（ゴール判定を無視）」と見なす
+		if (abs_diff >= STRAIGHT_DIFF_THRESHOLD) {
+			is_on_tracking_curve = true; // diffが大きいためカーブ走行中と判定
+		} else {
+			is_on_tracking_curve = false; // diffが小さいため直線走行中と判定
+		}
 		p = kp * diff;
 		d = kd * (diff - pre_diff) / DELTA_T;
 		tracking_term = p + d + i;
 
 		pre_diff = diff;
+
 	}
 }
 
@@ -148,7 +160,6 @@ void CourseOut(void) {
 		Unable_to_run_flag = false;
 	}
 }
-
 
 void debugmotor(float mon_deb_l, float mon_deb_r) {
 	mo_l_Deb = mon_deb_l;
