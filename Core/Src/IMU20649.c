@@ -10,6 +10,8 @@
 volatile int16_t xa, ya, za; // 加速度(16bitデータ)
 volatile int16_t xg, yg, zg;	// 角加速度(16bitデータ)
 
+float zg_offset = 0.0f;
+
 uint8_t read_byte(uint8_t reg) {
 	uint8_t ret, val;
 
@@ -20,6 +22,30 @@ uint8_t read_byte(uint8_t reg) {
 	CS_SET;
 
 	return val;
+}
+
+void IMU_CalibrateGyro(void)
+{
+    const uint16_t CALIB_SAMPLES = 1000; // 1000回サンプリング = 1秒間 (1ms間隔でサンプリングを想定)
+    int32_t zg_sum = 0;
+
+    // 最初のIMU読み取りが完了するまで待機（IMU_InitでSPI通信が確立されているはず）
+    read_gyro_data();
+
+    printf("Gyro Calibration: Start 1 second measurement...\r\n");
+
+    // 1000回サンプリング
+    for (uint16_t i = 0; i < CALIB_SAMPLES; i++)
+    {
+        read_gyro_data(); // IMUから新しいデータを読み込み、グローバル変数 zg (Raw Value) を更新
+        zg_sum += zg;
+        HAL_Delay(1); // 1ms待機
+    }
+
+    // 平均値を計算し、オフセットとして保存
+    zg_offset = (float)zg_sum / CALIB_SAMPLES;
+
+    printf("Gyro Calibration: Offset calculated (Raw Value): %.3f\r\n", zg_offset);
 }
 
 void write_byte(uint8_t reg, uint8_t val) {

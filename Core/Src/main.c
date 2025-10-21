@@ -140,6 +140,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	}
 }
 void Init(void) {
+	HAL_Delay(2000);
+	LED(LED_RED);
 	ADC_Init();
 	Encoder_Init();
 	HAL_TIM_Base_Start_IT(&htim6); // 1msタイマ開始
@@ -147,8 +149,11 @@ void Init(void) {
 	Motor_Init();
 	IMU_Init();
 	Log_Init();
+	IMU_CalibrateGyro();
 	LED(LED_BLUE);
+	LED(LED_WHITE);
 	Calibration();	 // キャリブレーションモード
+	LED(LED_BLUE);
 	HAL_Delay(1000); // 初期化後の待機時間
 }
 
@@ -286,7 +291,7 @@ int main(void) {
 			FanMotor(4000);
 			break;
 		case 2:
-			 printf("Mode 2: Writing data...\r\n");
+			printf("Mode 2: Writing data...\r\n");
 			WriteData();
 			bayado = -1;
 			break;
@@ -304,7 +309,7 @@ int main(void) {
 		case 4:
 			FanMotor(4000);
 			if (timer2 >= 6000) {
-				setTarget(2.7);
+				setTarget(2.4);
 				startTracking(); //cyan
 				S_Sensor();
 			}

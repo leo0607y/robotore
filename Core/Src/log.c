@@ -22,6 +22,7 @@ static uint16_t log_count;
 static LogData_t data[4000];
 static int dc = 0;
 extern int lion;
+extern float zg_offset;
 
 // 曲率半径計算用の静的変数
 static float integrated_angle = 0.0f;     // 角度積算値[rad]
@@ -102,7 +103,7 @@ uint16_t Log_GetCount(void) {
 void Log_CalculateAndSave(void) {
 
 	// IMU20649.h/cで定義されているグローバル変数zgを使用
-	float angular_velocity_z = (float) zg / 16.4f; // 4000dpsレンジのスケールファクター
+	float angular_velocity_z = ((float) zg - zg_offset) / 16.4f; // 4000dpsレンジのスケールファクター
 	integrated_angle += angular_velocity_z * 0.001f; // TIM6(1ms)ごとに呼び出されると仮定
 
 //	printf("%f\n", getDistance());
