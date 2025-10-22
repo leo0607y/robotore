@@ -22,8 +22,9 @@
 // これを超える値は、走行中のノイズによる「ほぼ直線」と見なす。
 #define MAX_PRACTICAL_RADIUS_M  (10.0f)
 
-#define ZG_FILTER_ALPHA 0.8f // フィルタ係数 (0.1から調整を推奨)
+#define ZG_FILTER_ALPHA         0.2037f
 static float filtered_angular_velocity = 0.0f;
+#define DEG_TO_RAD 0.0174532925f // PI / 180
 
 static uint32_t log_write_address;
 static uint16_t log_count;
@@ -118,7 +119,7 @@ void Log_CalculateAndSave(void) {
 		filtered_angular_velocity = (1.0f - ZG_FILTER_ALPHA) * filtered_angular_velocity + ZG_FILTER_ALPHA * raw_angular_velocity_z;
 
 		// 3. 角度積算には平滑化された値を使用
-		integrated_angle += filtered_angular_velocity * 0.001f;
+		integrated_angle += filtered_angular_velocity * DEG_TO_RAD * 0.001f; // 0.001f は dt(1ms)
 //	printf("%f\n", getDistance());
 
 	if (getDistance() >= 10.0f / 1000.0f) {
