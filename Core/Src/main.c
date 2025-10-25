@@ -309,7 +309,7 @@ int main(void) {
 		case 4:
 			FanMotor(4000);
 			if (timer2 >= 6000) {
-				setTarget(2.4);
+				setTarget(2.8);
 				startTracking(); //cyan
 				S_Sensor();
 			}
@@ -317,7 +317,7 @@ int main(void) {
 		case 5:
 			FanMotor(4000);
 			if (timer2 >= 6000) {
-				setTarget(2.8);
+				setTarget(2.9);
 				startTracking(); //cyan
 				S_Sensor();
 			}
