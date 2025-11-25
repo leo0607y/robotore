@@ -61,14 +61,16 @@ void S_Sensor() {
 
 		if (Marker_State == 2 && side_sensor_l) {
 			uint32_t dt = current_time - RightDetectedTime;
-			if (dt <= 100) {
+			if (dt <= 90) {
 				Marker_State = 1;  // 交差ラインなのでキャンセル
 			}
 		}
 
 		if (Marker_State == 2) {
 			uint32_t dt = current_time - RightDetectedTime;
-			if (dt > 100) {
+			if (dt > 90) {
+				setMotor(-50,-50);
+				HAL_Delay(50);
 				Stop_Flag = true;
 				lion = 2;
 				bayado = 6;
