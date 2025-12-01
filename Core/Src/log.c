@@ -16,6 +16,7 @@
 #include "IMU20649.h" //
 #include "Encoder.h" //
 #include "flash2.h"
+#include "TrackingPart.h"
 
 #define MIN_COURSE_RADIUS_M     (0.09f)      // R10cm（コースの最小曲率半径 - 確定値）
 // コースの最大半径が不明なため、実用上の上限を100mに設定。
@@ -59,11 +60,17 @@ void Log_SaveData(LogData_t data) {
 	// Flashにログデータを書き込む
 	// 個々の書き込み関数がロック/アンロックを管理するため、ここでは行わない
 	FLASH_Write_Word_S(log_write_address, data.left_encoder_count);
-	log_write_address += sizeof(int32_t);
-	FLASH_Write_Word_S(log_write_address, data.right_encoder_count);
-	log_write_address += sizeof(int32_t);
-	FLASH_Write_Word_F(log_write_address, data.curvature_radius);
-	log_write_address += sizeof(float);
+	    log_write_address += sizeof(int32_t);
+	    FLASH_Write_Word_S(log_write_address, data.right_encoder_count);
+	    log_write_address += sizeof(int32_t);
+	    FLASH_Write_Word_F(log_write_address, data.curvature_radius);
+	    log_write_address += sizeof(float);
+	    FLASH_Write_Word_F(log_write_address, data.left_velocity);
+	    log_write_address += sizeof(float);
+	    FLASH_Write_Word_F(log_write_address, data.right_velocity);
+	    log_write_address += sizeof(float);
+	    FLASH_Write_Word_F(log_write_address, data.robot_velocity);
+	    log_write_address += sizeof(float);
 
 	// ログエントリ数を更新
 	log_count++;
@@ -122,40 +129,44 @@ void Log_CalculateAndSave(void) {
 		integrated_angle += filtered_angular_velocity * DEG_TO_RAD * 0.001f; // 0.001f は dt(1ms)
 //	printf("%f\n", getDistance());
 
-	if (getDistance() >= 10.0f / 1000.0f) {
-			LogData_t new_log;
+		if (getDistance() >= 10.0f / 1000.0f) {
+		    LogData_t new_log;
 
-			// 既存のログデータ項目を埋める
-			new_log.left_encoder_count = enc_l_total; //
-			new_log.right_encoder_count = enc_r_total; //
+		    // 速度を取得
+		    float current_speed_left = 0.0f;
+		    float current_speed_right = 0.0f;
+		    getCurrentVelocity(&current_speed_left, &current_speed_right);
 
-			if (fabsf(integrated_angle) > 0.001f) {
-				float calculated_radius = getDistance() / integrated_angle;
-	            float abs_calculated_radius = fabsf(calculated_radius); // 絶対値を取得
+		    // 既存のログデータ項目を埋める
+		    new_log. left_encoder_count = enc_l_total;
+		    new_log.right_encoder_count = enc_r_total;
 
-	            // ★★★ 修正: 上限フィルタリングの追加 ★★★
-	            // |R| < 0.09m（最小半径未満） OR |R| > 10.0m（実用最大半径超）の場合、直線(0.0f)として記録
-	            if (abs_calculated_radius < MIN_COURSE_RADIUS_M || abs_calculated_radius > MAX_PRACTICAL_RADIUS_M) {
-	                new_log.curvature_radius = 0.0f; // ノイズ/実質的な直線
-	            } else {
-	                // 0.09m <= |R| <= 10.0m の有効なカーブ
-	                new_log.curvature_radius = calculated_radius;
-	            }
-	            // ★★★ 修正はここまで ★★★
+		    // 速度情報を追加
+		    new_log.left_velocity = current_speed_left;
+		    new_log.right_velocity = current_speed_right;
+		    new_log.robot_velocity = (current_speed_left + current_speed_right) / 2. 0f;  // ロボットの速度は左右の平均
 
-			} else {
-				new_log.curvature_radius = 0.0f; // integrated_angle が極小（厳密な直線）
-			}
+		    // 曲率半径の計算（既存のロジック）
+		    if (fabsf(integrated_angle) > 0.001f) {
+		        float calculated_radius = getDistance() / integrated_angle;
+		        float abs_calculated_radius = fabsf(calculated_radius);
 
-//        Log_SaveData(new_log);
-		data[dc] = new_log;
+		        if (abs_calculated_radius < MIN_COURSE_RADIUS_M || abs_calculated_radius > MAX_PRACTICAL_RADIUS_M) {
+		            new_log.curvature_radius = 0.0f;
+		        } else {
+		            new_log.curvature_radius = calculated_radius;
+		        }
+		    } else {
+		        new_log.curvature_radius = 0.0f;
+		    }
 
-		// ログ保存後、距離と角度をリセット
-		clearDistance(); //
-		integrated_angle = 0.0f;
-		dc++;
-	}
-}
+		    data[dc] = new_log;
+
+		    // ログ保存後、距離と角度をリセット
+		    clearDistance();
+		    integrated_angle = 0.0f;
+		    dc++;
+		}
 
 /**
  * @brief Flashメモリに保存されているログをシリアル通信で出力します。
@@ -167,9 +178,9 @@ void Log_PrintData_To_Serial(void) {
     for (uint16_t i = 0; i < dc; i++) {
 //      Log_ReadData(&log_entry, i); // この行はコメントアウトしたまま
         loadFlash(start_adress_sector11, (uint8_t*) data, sizeof(LogData_t) * 1000); // この行はループの外に移動させます
-        printf("Entry %d: Left Enc: %d, Right Enc: %d, Curvature Radius: %.2f\r\n",
-                i, data[i].left_encoder_count, data[i].right_encoder_count, // log_entryではなくdata[i]を使用
-                data[i].curvature_radius);
+        printf("Entry %d: Left Enc: %d, Right Enc: %d, Curvature Radius: %.2f, Left Vel: %.3f, Right Vel: %.3f, Robot Vel: %.3f\r\n",
+                i, data[i].left_encoder_count, data[i].right_encoder_count,
+                data[i].curvature_radius, data[i].left_velocity, data[i].right_velocity, data[i].robot_velocity);
     }
 //	printf("Flash Log Data (%d entries):\r\n", dc);
 //	for (int abc = 0; abc < dc; abc++) {

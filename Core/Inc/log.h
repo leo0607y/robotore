@@ -9,6 +9,9 @@ typedef struct {
     int16_t left_encoder_count;
     int16_t right_encoder_count;
     float curvature_radius; // 追加：曲率半径
+    float left_velocity;    // 追加：左タイヤの速度 [m/s]
+    float right_velocity;   // 追加：右タイヤの速度 [m/s]
+    float robot_velocity;
 } LogData_t;
 
 // Flashメモリのログ領域設定（STM32F405VGを想定）
