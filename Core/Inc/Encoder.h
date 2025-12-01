@@ -16,6 +16,7 @@
 #define REDUCTION_RATIO (18.0f / 64.0f)                                                           // 減速比
 #define DISTANCE_PER_CNT (2.0f * PI * WHEEL_RADIUS * REDUCTION_RATIO / ENCODER_RESOLUTION) //[mm/cnt]
 #define CNT_OFFSET 32768
+#define METER_PER_CNT (2.0f * PI * WHEEL_RADIUS * REDUCTION_RATIO / ENCODER_RESOLUTION)
 
 extern int32_t enc_l_total;
 extern int32_t enc_r_total;
@@ -66,5 +67,7 @@ void resetEncoderCnt(void);              // エンコーダカウントリセッ
 void clearTotalDistance();               // 総走行距離リセット
 void clearGoalJudgeDistance();           // ゴール判定距離リセット
 void clearSideLineJudgeDistance();       // サイドライン判定距離リセット
+
+void printCurrentVelocity(void);
 
 #endif /* INC_ENCODER_H_ */

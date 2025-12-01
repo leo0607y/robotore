@@ -6,6 +6,8 @@
 
 #include "Encoder.h"
 #include "tim.h"
+#include "stdio.h"
+
 //
 //// --- エンコーダ・走行距離計算用定数 ---
 // #define MAX_ENCODER_CNT 65535 // エンコーダカウンタ最大値
@@ -24,6 +26,7 @@ extern TIM_HandleTypeDef htim3;
 extern TIM_HandleTypeDef htim4;
 extern int32_t enc_l_total;
 extern int32_t enc_r_total;
+extern void getCurrentVelocity(float *vel_l, float *vel_r);
 int32_t enc_l_total = 0;
 int32_t enc_r_total = 0;
 
@@ -209,4 +212,11 @@ void getWheelDistance(float *dist_l, float *dist_r)
 {
     *dist_l = (float)enc_l_total * DISTANCE_PER_CNT;
     *dist_r = (float)enc_r_total * DISTANCE_PER_CNT;
+}
+
+void printCurrentVelocity(void)
+{
+    float vl = 0.0f, vr = 0.0f;
+    getCurrentVelocity(&vl, &vr);
+    printf("vel_L=%.3f [m/s], vel_R=%.3f [m/s]\r\n", vl, vr);
 }

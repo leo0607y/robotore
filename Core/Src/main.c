@@ -347,7 +347,7 @@ int main(void)
 			if (timer2 >= 6000) {
 				setTarget(1.8);
 				startTracking(); //cyan
-				S_Sensor();
+				printCurrentVelocity();
 			}
 			break;
 		case 5:
