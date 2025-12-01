@@ -84,6 +84,11 @@ extern int8_t trace_flag;
 extern uint8_t Marker_State;
 extern volatile uint32_t time_ms;
 
+//static float enc_start_l = 0.0f;
+//static float enc_start_r = 0.0f;
+//static int last_bayado = -1;
+//static uint32_t last_enc_print = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -277,31 +282,49 @@ int main(void)
 
 		switch (bayado) {
 		case 0:
-//			Log_Erase();
-//			bayado = -1;
-			FanMotor(4000);
+			Log_Erase();
+			bayado = -1;
+//			FanMotor(4000);
 			break;
 		case 1:
-			FanMotor(4000);
-			if (timer2 >= 6000) {
-				setTarget(1.6);
-				startTracking(); //cyan
-				S_Sensor();
-			}
-//			printf("Gyro X: %d, Y: %d, Z: %d\r\n", xg, yg, zg);
+//			FanMotor(4000);
+//
+//						/* --- 追加：bayado==1 のとき左右エンコーダ距離をシリアル出力 --- */
+//						{
+//							float dl, dr;
+//							/* モード遷移検出：bayado が 1 に変わった瞬間に基準距離を取得 */
+//							if (last_bayado != 1) {
+//								getWheelDistance(&enc_start_l, &enc_start_r); // mm 単位
+//								last_enc_print = timer;
+//								last_bayado = 1;
+//							}
+//
+//
+//
+//							/* 定期出力（約200msごと） */
+//							if ((uint32_t)(timer - last_enc_print) >= 200) {
+//								getWheelDistance(&dl, &dr); // mm
+//								float dl_delta = dl - enc_start_l;
+//								float dr_delta = dr - enc_start_r;
+//								float avg = (dl_delta + dr_delta) / 2.0f;
+//								printf("Enc delta L: %.1f mm, R: %.1f mm, Avg: %.1f mm\r\n", dl_delta, dr_delta, avg);
+//								last_enc_print = timer;
+//							}
+//						}
+////			printf("Gyro X: %d, Y: %d, Z: %d\r\n", xg, yg, zg);
 //			printf("Accel X: %d, Y: %d, Z: %d\r\n", xa, ya, za);
 //			FanMotor(4000);
 			break;
 		case 2:
-//			printf("Mode 2: Writing data...\r\n");
-//			WriteData();
-//			bayado = -1;
-			FanMotor(4000);
-						if (timer2 >= 6000) {
-							setTarget(2.7);
-							startTracking(); //cyan
-							S_Sensor();
-						}
+			printf("Mode 2: Writing data...\r\n");
+			WriteData();
+			bayado = -1;
+//			FanMotor(4000);
+//						if (timer2 >= 6000) {
+//							setTarget(2.7);
+//							startTracking(); //cyan
+//							S_Sensor();
+//						}
 			break;
 		case 3:
 ////			FanMotor(4000);
@@ -309,20 +332,20 @@ int main(void)
 ////				setTarget(1.8);
 ////				startTracking(); //cyan
 ////				S_Sensor();
-//			Log_PrintData_To_Serial();
-////			Log_Test_Read_And_Print();
-//			bayado = -1; // 1回実行したらモードを終了
-			FanMotor(4000);
-						if (timer2 >= 6000) {
-							setTarget(2.8);
-							startTracking(); //cyan
-							S_Sensor();
-						}
+			Log_PrintData_To_Serial();
+//			Log_Test_Read_And_Print();
+			bayado = -1; // 1回実行したらモードを終了
+//			FanMotor(4000);
+//						if (timer2 >= 6000) {
+//							setTarget(2.8);
+//							startTracking(); //cyan
+//							S_Sensor();
+//						}
 			break;
 		case 4:
 			FanMotor(4000);
 			if (timer2 >= 6000) {
-				setTarget(2.9);
+				setTarget(1.8);
 				startTracking(); //cyan
 				S_Sensor();
 			}
@@ -330,7 +353,7 @@ int main(void)
 		case 5:
 			FanMotor(4000);
 			if (timer2 >= 6000) {
-				setTarget(2.95);
+				setTarget(4.5);
 				startTracking(); //cyan
 				S_Sensor();
 			}
