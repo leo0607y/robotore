@@ -154,7 +154,12 @@ void Init(void)
 		__HAL_RCC_CLEAR_RESET_FLAGS(); // リセットフラグをクリア
 	}
 	
-	HAL_Delay(2000);
+	// 長い待機中もWatchdogリフレッシュ（誤判定防止）
+	for (int i = 0; i < 20; i++)
+	{
+		HAL_Delay(100);
+		if (IWDG->SR == 0) IWDG->KR = 0xAAAA; // Watchdog有効なら定期的にリフレッシュ
+	}
 	LED(LED_RED);
 	ADC_Init();
 	Encoder_Init();
@@ -185,14 +190,19 @@ void Init(void)
 	}
 	
 	LED(LED_BLUE);
-	HAL_Delay(1000); // 初期化後の待機時間
+	// 初期化後の待機時間（Watchdogリフレッシュ付き）
+	for (int i = 0; i < 10; i++)
+	{
+		HAL_Delay(100);
+		if (IWDG->SR == 0) IWDG->KR = 0xAAAA;
+	}
 	
-	// Independent Watchdog の初期化（約4秒でタイムアウト）
+	// Independent Watchdog の初期化（約1.5秒でタイムアウト）
 	// LSI = 32kHz, Prescaler = 64 → 約500Hz
-	// Reload = 2000 → 4秒
+	// Reload = 750 → 1.5秒（誤判定防止のため1秒より余裕を持たせる）
 	IWDG->KR = 0x5555;  // レジスタアクセス許可
 	IWDG->PR = 0x04;    // Prescaler = 64 (0x04)
-	IWDG->RLR = 2000;   // Reload value = 2000 (約4秒)
+	IWDG->RLR = 750;    // Reload value = 750 (約1.5秒)
 	IWDG->KR = 0xCCCC;  // Watchdog起動
 	IWDG->KR = 0xAAAA;  // Watchdogリフレッシュ
 }
@@ -279,7 +289,12 @@ int main(void)
 			Start_Flag = false;
 			Stop_Flag = false;
 			timer2 = 0;
-			HAL_Delay(3000);
+			// 3秒待機中もWatchdogリフレッシュ（誤判定防止）
+			for (int i = 0; i < 30; i++)
+			{
+				HAL_Delay(100);
+				IWDG->KR = 0xAAAA;
+			}
 			bayado = lion; // モードを確定！
 
 			sw2 = 0;
