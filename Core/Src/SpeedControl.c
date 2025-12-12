@@ -7,23 +7,24 @@
 
 #define DELTA_T 0.001
 
-// PIゲイン調整：高速応答重視（PWMクリッピングで安全性確保）
-// KP: 250（素早い目標速度到達）
-// KI: 40（定常偏差を短時間で解消）
-// 安全対策：PWM±1599クリッピング + Watchdog(1.5秒)で保護
-#define KP 250.0f
-#define KI 40.0f
+// PIゲイン: 元の高応答設定に戻す（PWMクリッピングで安全確保）
+// KP: 300（最速応答）
+// KI: 50（強力な定常偏差解消）
+// 積分上限: ±30.0（十分なPWM出力を確保）
+// 安全対策: PWM±1599クリッピング + Watchdog(1.5秒)
+#define KP 300.0f
+#define KI 50.0f
 
 float SpeedControl(float target_velocity, float current_velocity, float *integral)
 {
 	float e = target_velocity - current_velocity;
 	*integral += e * DELTA_T; // I制御
 
-	// 積分ワインドアップ防止（より広い範囲を許容）
-	if (*integral > 10.0f)
-		*integral = 10.0f;
-	if (*integral < -10.0f)
-		*integral = -10.0f;
+	// 積分ワインドアップ防止（積分上限を拡大: ±10→±30）
+	if (*integral > 30.0f)
+		*integral = 30.0f;
+	if (*integral < -30.0f)
+		*integral = -30.0f;
 
 	float pwm = e * KP + *integral * KI;
 
