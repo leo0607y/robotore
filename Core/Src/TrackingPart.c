@@ -29,7 +29,6 @@ float diff = 0;
 static float integral_left = 0.0;
 static float integral_right = 0.0;
 
-
 void getCurrentVelocity(float *current_speed_left, float *current_speed_right)
 {
 	int16_t enc_l = 0, enc_r = 0;
@@ -118,7 +117,7 @@ void TraceFlip(void)
 		// 左目標 = Target - tracking_term
 		// 右目標 = Target + tracking_term
 		// → (左目標 + 右目標) / 2 = Target が保証される
-		
+
 		float target_speed_left = TargetSpeed - tracking_term;
 		float target_speed_right = TargetSpeed + tracking_term;
 
