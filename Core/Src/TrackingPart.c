@@ -28,6 +28,7 @@ float diff = 0;
 
 static float integral_left = 0.0;
 static float integral_right = 0.0;
+static float integral_center = 0.0;  // 中心速度制御用の積分項
 
 void getCurrentVelocity(float *current_speed_left, float *current_speed_right) {
 	int16_t enc_l = 0, enc_r = 0;
@@ -107,16 +108,22 @@ void TraceFlip(void) {
 		float current_speed_right = 0.0;
 		getCurrentVelocity(&current_speed_left, &current_speed_right);
 		float TargetSpeed = getTarget();
-		// 速度制御
-		float speed_pi_output_left = SpeedControl(TargetSpeed - tracking_term,
+		
+		// 中心速度制御方式: ロボット中心速度を常にTargetに保つ
+		// 中心速度 = (左速度 + 右速度) / 2
+		float current_center_speed = (current_speed_left + current_speed_right) / 2.0f;
+		
+		// 中心速度をTargetに追従させるPI制御
+		float center_control = SpeedControl(TargetSpeed, current_center_speed, &integral_center);
+		
+		// tracking_termで左右の差を作る
+		// 左モーター目標 = 中心制御 - ライントレース補正
+		// 右モーター目標 = 中心制御 + ライントレース補正
+		// これにより (left_target + right_target) / 2 = center_control が保証される
+		float speed_pi_output_left = SpeedControl(center_control - tracking_term,
 				current_speed_left, &integral_left);
-		float speed_pi_output_right = SpeedControl(TargetSpeed + tracking_term,
+		float speed_pi_output_right = SpeedControl(center_control + tracking_term,
 				current_speed_right, &integral_right);
-
-		//		float speed_pi_output_left = SpeedControl(0.0, current_speed_left, &integral_left);
-		//				float speed_pi_output_right = SpeedControl(0.0, current_speed_right, &integral_right);
-
-		//        mon_velo_term = velo_ctrl_term;
 
 		setMotor(speed_pi_output_left, speed_pi_output_right);
 	} else {

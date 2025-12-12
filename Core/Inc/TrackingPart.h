@@ -30,4 +30,6 @@ extern float tracking_term;
 void setTarget(float speed);
 float getTarget(void);
 
+void getCurrentVelocity(float *current_speed_left, float *current_speed_right);
+
 #endif /* INC_TRACKINGPART_H_ */
