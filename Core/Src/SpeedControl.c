@@ -7,11 +7,12 @@
 
 #define DELTA_T 0.001
 
-// PIゲイン調整：応答性と安定性のバランス
-// KP: 150（目標速度への到達時間を短縮）
-// KI: 20（定常偏差を素早く解消、PWMオーバーフロー対策は±1599クリッピングで担保）
-#define KP 150.0f
-#define KI 20.0f
+// PIゲイン調整：高速応答重視（PWMクリッピングで安全性確保）
+// KP: 250（素早い目標速度到達）
+// KI: 40（定常偏差を短時間で解消）
+// 安全対策：PWM±1599クリッピング + Watchdog(1.5秒)で保護
+#define KP 250.0f
+#define KI 40.0f
 
 float SpeedControl(float target_velocity, float current_velocity, float *integral)
 {
