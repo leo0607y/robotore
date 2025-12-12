@@ -10,7 +10,7 @@
 // 積分ゲインを大幅増加：定常偏差をゼロに近づける
 // 負荷時（地面走行）でも目標速度を維持するために必要
 #define KP 300.0f
-#define KI 50.0f  // 5.0 → 50.0 (10倍)
+#define KI 50.0f // 5.0 → 50.0 (10倍)
 
 float SpeedControl(float target_velocity, float current_velocity, float *integral)
 {
@@ -23,5 +23,14 @@ float SpeedControl(float target_velocity, float current_velocity, float *integra
 	if (*integral < -10.0f)
 		*integral = -10.0f;
 
-	return e * KP + *integral * KI;
+	float pwm = e * KP + *integral * KI;
+	
+	// PWM値のクリッピング（オーバーフロー防止）
+	// MAX_COUNTER_PERIOD = 1599 の範囲内に制限
+	if (pwm > 1599.0f)
+		pwm = 1599.0f;
+	if (pwm < -1599.0f)
+		pwm = -1599.0f;
+	
+	return pwm;
 }
