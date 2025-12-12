@@ -153,12 +153,13 @@ void Init(void)
 		watchdog_reset_detected = true;
 		__HAL_RCC_CLEAR_RESET_FLAGS(); // リセットフラグをクリア
 	}
-	
+
 	// 長い待機中もWatchdogリフレッシュ（誤判定防止）
 	for (int i = 0; i < 20; i++)
 	{
 		HAL_Delay(100);
-		if (IWDG->SR == 0) IWDG->KR = 0xAAAA; // Watchdog有効なら定期的にリフレッシュ
+		if (IWDG->SR == 0)
+			IWDG->KR = 0xAAAA; // Watchdog有効なら定期的にリフレッシュ
 	}
 	LED(LED_RED);
 	ADC_Init();
@@ -171,7 +172,7 @@ void Init(void)
 	IMU_CalibrateGyro();
 	LED(LED_BLUE);
 	LED(LED_WHITE);
-	
+
 	// Watchdogリセット後は安全のためキャリブレーションをスキップ
 	if (!watchdog_reset_detected)
 	{
@@ -188,23 +189,24 @@ void Init(void)
 			HAL_Delay(100);
 		}
 	}
-	
+
 	LED(LED_BLUE);
 	// 初期化後の待機時間（Watchdogリフレッシュ付き）
 	for (int i = 0; i < 10; i++)
 	{
 		HAL_Delay(100);
-		if (IWDG->SR == 0) IWDG->KR = 0xAAAA;
+		if (IWDG->SR == 0)
+			IWDG->KR = 0xAAAA;
 	}
-	
+
 	// Independent Watchdog の初期化（約1.5秒でタイムアウト）
 	// LSI = 32kHz, Prescaler = 64 → 約500Hz
 	// Reload = 750 → 1.5秒（誤判定防止のため1秒より余裕を持たせる）
-	IWDG->KR = 0x5555;  // レジスタアクセス許可
-	IWDG->PR = 0x04;    // Prescaler = 64 (0x04)
-	IWDG->RLR = 750;    // Reload value = 750 (約1.5秒)
-	IWDG->KR = 0xCCCC;  // Watchdog起動
-	IWDG->KR = 0xAAAA;  // Watchdogリフレッシュ
+	IWDG->KR = 0x5555; // レジスタアクセス許可
+	IWDG->PR = 0x04;   // Prescaler = 64 (0x04)
+	IWDG->RLR = 750;   // Reload value = 750 (約1.5秒)
+	IWDG->KR = 0xCCCC; // Watchdog起動
+	IWDG->KR = 0xAAAA; // Watchdogリフレッシュ
 }
 
 /* USER CODE END 0 */
@@ -260,7 +262,7 @@ int main(void)
 	{
 		// Watchdogをリフレッシュ（フリーズ防止）
 		IWDG->KR = 0xAAAA;
-		
+
 		// Watchdogリセット後は自動的に停止モードへ
 		if (watchdog_reset_detected && bayado == -1)
 		{
@@ -268,7 +270,7 @@ int main(void)
 			watchdog_reset_detected = false;
 			printf("[WARNING] Watchdog reset detected. System stopped safely.\r\n");
 		}
-		
+
 		//		// --- 右ボタン: lionをCaseとして確定 ---
 		if (StatusR('R') == 2 && sw2 == 0)
 		{

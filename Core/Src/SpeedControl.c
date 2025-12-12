@@ -7,10 +7,11 @@
 
 #define DELTA_T 0.001
 
-// 積分ゲインを大幅増加：定常偏差をゼロに近づける
-// 負荷時（地面走行）でも目標速度を維持するために必要
-#define KP 300.0f
-#define KI 50.0f // 5.0 → 50.0 (10倍)
+// PIゲイン調整：安定性重視（フリーズ防止）
+// KP: 300→100（応答性は維持しつつオーバーシュート抑制）
+// KI: 50→10（積分項の暴走を防止、PWMオーバーフロー対策）
+#define KP 100.0f
+#define KI 10.0f
 
 float SpeedControl(float target_velocity, float current_velocity, float *integral)
 {
@@ -24,13 +25,13 @@ float SpeedControl(float target_velocity, float current_velocity, float *integra
 		*integral = -10.0f;
 
 	float pwm = e * KP + *integral * KI;
-	
+
 	// PWM値のクリッピング（オーバーフロー防止）
 	// MAX_COUNTER_PERIOD = 1599 の範囲内に制限
 	if (pwm > 1599.0f)
 		pwm = 1599.0f;
 	if (pwm < -1599.0f)
 		pwm = -1599.0f;
-	
+
 	return pwm;
 }
