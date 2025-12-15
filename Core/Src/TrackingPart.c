@@ -1,5 +1,6 @@
 #include "TrackingPart.h"
 #include "Encoder.h"
+#include "log.h"
 #include <stdio.h>
 #include <math.h>
 
@@ -29,6 +30,8 @@ float diff = 0;
 static float integral_left = 0.0;
 static float integral_right = 0.0;
 
+volatile uint16_t all_sensor = 0;
+
 void getCurrentVelocity(float *current_speed_left, float *current_speed_right)
 {
 	int16_t enc_l = 0, enc_r = 0;
@@ -44,8 +47,8 @@ void ControlLineTracking(void)
 	static float i;
 	//	float kp = 0.0072;
 	//	float kd = 0.00013;
-	float kp = 0.0206;	 // 2.4m/s
-	float kd = 0.000044; // 2.4m/s
+	float kp = 0.01;	// 2.4m/s
+	float kd = 0.00003; // 2.4m/s
 	//	float kp = 0.018;	// 2.6m/s
 	//	float kd = 0.00008; // 2.6m/s
 
@@ -62,7 +65,7 @@ void ControlLineTracking(void)
 		//				- ((sensor[6] + sensor[7] * 1.2 + sensor[8] * 1.4
 		//						+ sensor[9] * 1.6 + sensor[10] * 1.8 + sensor[11] * 2)
 		//						/ 5);
-		diff = ((sensor[0] * 1.0 + sensor[1] * 1.0 + sensor[2] * 1.0 + sensor[3] * 1.0 + sensor[4] * 1.0 + sensor[5]) / 5) - ((sensor[6] + sensor[7] * 1.0 + sensor[8] * 1.0 + sensor[9] * 1.0 + sensor[10] * 1.0 + sensor[11] * 1.0) / 5);
+		diff = ((sensor[0] * 1.2 + sensor[1] * 1.2 + sensor[2] * 1.1 + sensor[3] * 1.1 + sensor[4] * 1.0 + sensor[5]) / 5) - ((sensor[6] + sensor[7] * 1.0 + sensor[8] * 1.1 + sensor[9] * 1.1 + sensor[10] * 1.2 + sensor[11] * 1.2) / 5);
 		float abs_diff = fabsf(diff); // floatの絶対値を取得
 
 		// |diff| >= 100.0f の場合を「カーブ走行中（ゴール判定を無視）」と見なす
@@ -77,6 +80,12 @@ void ControlLineTracking(void)
 		p = kp * diff;
 		d = kd * (diff - pre_diff) / DELTA_T;
 		tracking_term = p + d + i;
+
+		// カーブ時は左右速度差を増幅して大回りに（R10対策）
+		if (abs_diff >= STRAIGHT_DIFF_THRESHOLD)
+		{
+			tracking_term *= 1.3; // カーブ時は30%増幅
+		}
 
 		pre_diff = diff;
 	}
@@ -150,32 +159,65 @@ void stopTracking(void)
 
 void CourseOut(void)
 {
-	volatile static uint16_t all_sensor;
-	//	uint16_t all_sensor;
-	static uint16_t unable_cnt;
-	all_sensor = (sensor[0] + sensor[1] + sensor[2] + sensor[3] + sensor[4] + sensor[5] + sensor[6] + sensor[7] + sensor[8] + sensor[9] + sensor[10] + sensor[11]) / 12;
-	if (all_sensor > 900)
+	if (trace_flag == 1)
 	{
-		unable_cnt++;
-	}
-	else
-	{
-		unable_cnt = 0;
-	}
+		//	uint16_t all_sensor;
+		static uint16_t unable_cnt;
+		static uint16_t unable_cnt_all_high;
 
-	if (unable_cnt >= 50)
-	{
-		Unable_to_run_flag = true;
-		Marker_State = 0;
-		Start_Flag = false;
-		Stop_Flag = false;
-		bayado = 6; // mainにあるlionと同じ変数に戻す
-		lion = 1;
-		setMotor(0, 0);
-	}
-	else
-	{
-		Unable_to_run_flag = false;
+		// 条件1: 平均値が900超
+		all_sensor = (sensor[0] + sensor[1] + sensor[2] + sensor[3] + sensor[4] + sensor[5] + sensor[6] + sensor[7] + sensor[8] + sensor[9] + sensor[10] + sensor[11]) / 12;
+		if (all_sensor > 900)
+		{
+			unable_cnt++;
+		}
+		else
+		{
+			unable_cnt = 0;
+		}
+
+		// 条件2: すべてのセンサが500超（1個でも500以下ならリセット）
+		bool all_sensors_high = true;
+		for (int i = 0; i < 12; i++)
+		{
+			if (sensor[i] <= 500)
+			{
+				all_sensors_high = false;
+				break;
+			}
+		}
+
+		if (all_sensors_high)
+		{
+			unable_cnt_all_high++;
+		}
+		else
+		{
+			unable_cnt_all_high = 0;
+		}
+
+		// どちらかの条件が50ms継続したらコースアウト
+		if (unable_cnt >= 50 || unable_cnt_all_high >= 50)
+		{
+			Unable_to_run_flag = true;
+			Marker_State = 0;
+			Start_Flag = false;
+			Stop_Flag = false;
+
+			// コースアウト時にFlashへログを保存
+			printf("Course Out detected! Saving %d logs to Flash...\r\n", dc);
+			WriteData(); // Flashに全ログを書き込み
+			printf("Flash write complete. Set bayado=3 to view logs.\r\n");
+
+			bayado = 6; // mainにあるlionと同じ変数に戻す
+			lion = 1;
+			setMotor(0, 0);
+			trace_flag = 0;
+		}
+		else
+		{
+			Unable_to_run_flag = false;
+		}
 	}
 }
 

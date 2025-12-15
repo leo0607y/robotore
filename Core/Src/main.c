@@ -105,6 +105,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if (htim->Instance == TIM6)
 	{ // 1ms
+		//		static uint32_t tim6_count = 0;
+		//		tim6_count++;
+		//
+		//		if (tim6_count % 1000 == 0)
+		//		{
+		//			printf("TIM6 Interrupt: %lu times\r\n", tim6_count);
+		//		}
+
 		timer++;
 		timer2++;
 
@@ -114,6 +122,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		ControlLineTracking();
 		TraceFlip();
 		motorCtrlFlip();
+		read_gyro_data();  // グローバル変数 xg, yg, zg を更新
+		read_accel_data(); // グローバル変数 xa, ya, za を更新
 		Fan_Ctrl();
 		if (trace_flag)
 		{
@@ -121,16 +131,15 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		}
 
 		//		updateSideSensorStatus();
-		CourseOut();
-		read_gyro_data();  // グローバル変数 xg, yg, zg を更新
-		read_accel_data(); // グローバル変数 xa, ya, za を更新
-						   //		S_Sensor();
+
+		//		S_Sensor();
 	}
 	if (htim->Instance == TIM7)
 	{ // 0.1ms
 		timer1++;
 
 		StorageBuffer();
+		CourseOut();
 		//		CourseOut();
 
 		//		Encoder_Update();
@@ -164,12 +173,12 @@ void Init(void)
 	LED(LED_RED);
 	ADC_Init();
 	Encoder_Init();
-	HAL_TIM_Base_Start_IT(&htim6); // 1msタイマ開始
-	HAL_TIM_Base_Start_IT(&htim7); // 1msタイマ開始
 	Motor_Init();
-	IMU_Init();
+	IMU_Init(); // IMU初期化を先に実行
 	Log_Init();
 	IMU_CalibrateGyro();
+	HAL_TIM_Base_Start_IT(&htim6); // IMU初期化後にタイマー開始
+	HAL_TIM_Base_Start_IT(&htim7); // IMU初期化後にタイマー開始
 	LED(LED_BLUE);
 	LED(LED_WHITE);
 
@@ -202,11 +211,12 @@ void Init(void)
 	// Independent Watchdog の初期化（約1.5秒でタイムアウト）
 	// LSI = 32kHz, Prescaler = 64 → 約500Hz
 	// Reload = 750 → 1.5秒（誤判定防止のため1秒より余裕を持たせる）
-	IWDG->KR = 0x5555; // レジスタアクセス許可
-	IWDG->PR = 0x04;   // Prescaler = 64 (0x04)
-	IWDG->RLR = 750;   // Reload value = 750 (約1.5秒)
-	IWDG->KR = 0xCCCC; // Watchdog起動
-	IWDG->KR = 0xAAAA; // Watchdogリフレッシュ
+	// *** WatchDog無効化（制御への影響調査のため） ***
+	// IWDG->KR = 0x5555; // レジスタアクセス許可
+	// IWDG->PR = 0x04;   // Prescaler = 64 (0x04)
+	// IWDG->RLR = 750;   // Reload value = 750 (約1.5秒)
+	// IWDG->KR = 0xCCCC; // Watchdog起動
+	// IWDG->KR = 0xAAAA; // Watchdogリフレッシュ
 }
 
 /* USER CODE END 0 */
@@ -268,7 +278,7 @@ int main(void)
 		{
 			bayado = 6; // 停止モード
 			watchdog_reset_detected = false;
-			printf("[WARNING] Watchdog reset detected. System stopped safely.\r\n");
+			//			printf("[WARNING] Watchdog reset detected. System stopped safely.\r\n");
 		}
 
 		//		// --- 右ボタン: lionをCaseとして確定 ---
@@ -366,9 +376,11 @@ int main(void)
 			//				startTracking(); //cyan
 			//				S_Sensor();
 			//			}
-			//			printf("Gyro X: %d, Y: %d, Z: %d\r\n", xg, yg, zg);
-			//			printf("Accel X: %d, Y: %d, Z: %d\r\n", xa, ya, za);
-			FanMotor(4000);
+			// IMUデータはタイマー割り込み(TIM6, 1ms)で読み取り済み
+			// ここではグローバル変数を表示するだけ		__DSB(); // メモリバリア: volatileの最新値を確実に読み込む			printf("Gyro X: %d, Y: %d, Z: %d\r\n", xg, yg, zg);
+			printf("Accel X: %d, Y: %d, Z: %d\r\n", xa, ya, za);
+			HAL_Delay(100); // 表示間隔を調整
+			//			FanMotor(4000);
 			break;
 		case 2:
 			printf("Mode 2: Writing data...\r\n");
@@ -376,13 +388,10 @@ int main(void)
 			bayado = -1;
 			break;
 		case 3:
-			//			FanMotor(4000);
-			//			if (timer2 >= 6000) {
-			//				setTarget(1.8);
-			//				startTracking(); //cyan
-			//				S_Sensor();
+			// Flashから全ログを読み込んでシリアル出力
+			printf("Reading all logs from Flash and printing...\r\n");
 			Log_PrintData_To_Serial();
-			//			Log_Test_Read_And_Print();
+			printf("All logs printed successfully.\r\n");
 			bayado = -1; // 1回実行したらモードを終了
 
 			break;
@@ -409,9 +418,19 @@ int main(void)
 			FanMotor(4000);
 			if (timer2 >= 6000)
 			{
-				setTarget(2.8);
+				setTarget(2.0);
 				startTracking(); // cyan
 				S_Sensor();
+
+				// 現在の左右速度とエンコーダ値を表示
+				//							float current_speed_l, current_speed_r;
+				//							int16_t enc_l, enc_r;
+				//							getCurrentVelocity(&current_speed_l, &current_speed_r);
+				//							getEncoderCnt(&enc_l, &enc_r);
+				//							extern int16_t mon_rev_l, mon_rev_r;
+				//							float center_speed = (current_speed_l + current_speed_r) / 2.0f;
+				//							printf("L:%.3f R:%.3f | Center:%.3f | EncL:%d EncR:%d | PWML:%d PWMR:%d | Target:%.1f\r\n",
+				//								   current_speed_l, current_speed_r, center_speed, enc_l, enc_r, mon_rev_l, mon_rev_r, getTarget());
 			}
 			break;
 		case 6:

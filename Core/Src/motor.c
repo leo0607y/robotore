@@ -19,7 +19,7 @@ void Motor_Init(void)
 {
     HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1); // 左モータPWM開始
     HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_3); // 右モータPWM開始
-    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //Fan
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); // Fan
     HAL_Delay(100);                           // 安全のため少し待機
 }
 
@@ -30,6 +30,15 @@ void Motor_Init(void)
  */
 void motorCtrlFlip(void)
 {
+    // 緊急停止ガード：trace_flag=0の場合はモーター停止を維持
+    extern int8_t trace_flag;
+    if (trace_flag == 0)
+    {
+        __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, 0); // 左モーターPWM=0
+        __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 0); // 右モーターPWM=0
+        return;
+    }
+
     int16_t motor_pwm_l, motor_pwm_r;
 
     // 左モータ制御
@@ -70,6 +79,15 @@ void motorCtrlFlip(void)
 
 void setMotor(int16_t l, int16_t r)
 {
+    // 緊急停止ガード：trace_flag=0の場合は強制的に0に設定
+    extern int8_t trace_flag;
+    if (trace_flag == 0)
+    {
+        motor_l = 0;
+        motor_r = 0;
+        return;
+    }
+
     if (l >= MAX_COUNTER_PERIOD)
         l = MAX_COUNTER_PERIOD;
     else if (l <= MIN_COUNTER_PERIOD)
