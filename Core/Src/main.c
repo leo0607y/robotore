@@ -105,14 +105,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if (htim->Instance == TIM6)
 	{ // 1ms
-		//		static uint32_t tim6_count = 0;
-		//		tim6_count++;
-		//
-		//		if (tim6_count % 1000 == 0)
-		//		{
-		//			printf("TIM6 Interrupt: %lu times\r\n", tim6_count);
-		//		}
-
 		timer++;
 		timer2++;
 
@@ -122,8 +114,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		ControlLineTracking();
 		TraceFlip();
 		motorCtrlFlip();
-		read_gyro_data();  // グローバル変数 xg, yg, zg を更新
-		read_accel_data(); // グローバル変数 xa, ya, za を更新
 		Fan_Ctrl();
 		if (trace_flag)
 		{
@@ -131,8 +121,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		}
 
 		//		updateSideSensorStatus();
-
-		//		S_Sensor();
+		read_gyro_data();  // グローバル変数 xg, yg, zg を更新
+		read_accel_data(); // グローバル変数 xa, ya, za を更新
+						   //		S_Sensor();
 	}
 	if (htim->Instance == TIM7)
 	{ // 0.1ms
@@ -173,12 +164,12 @@ void Init(void)
 	LED(LED_RED);
 	ADC_Init();
 	Encoder_Init();
+	HAL_TIM_Base_Start_IT(&htim6); // 1msタイマ開始
+	HAL_TIM_Base_Start_IT(&htim7); // 1msタイマ開始
 	Motor_Init();
-	IMU_Init(); // IMU初期化を先に実行
+	IMU_Init();
 	Log_Init();
 	IMU_CalibrateGyro();
-	HAL_TIM_Base_Start_IT(&htim6); // IMU初期化後にタイマー開始
-	HAL_TIM_Base_Start_IT(&htim7); // IMU初期化後にタイマー開始
 	LED(LED_BLUE);
 	LED(LED_WHITE);
 
@@ -208,10 +199,10 @@ void Init(void)
 			IWDG->KR = 0xAAAA;
 	}
 
-	// Independent Watchdog の初期化（約1.5秒でタイムアウト）
+	// Independent Watchdog の初期化（完全に無効化）
+	// 予期しないリセットを防ぐため、Watchdogは無効化
 	// LSI = 32kHz, Prescaler = 64 → 約500Hz
 	// Reload = 750 → 1.5秒（誤判定防止のため1秒より余裕を持たせる）
-	// *** WatchDog無効化（制御への影響調査のため） ***
 	// IWDG->KR = 0x5555; // レジスタアクセス許可
 	// IWDG->PR = 0x04;   // Prescaler = 64 (0x04)
 	// IWDG->RLR = 750;   // Reload value = 750 (約1.5秒)
@@ -270,8 +261,11 @@ int main(void)
 
 	while (1)
 	{
-		// Watchdogをリフレッシュ（フリーズ防止）
-		IWDG->KR = 0xAAAA;
+		// Watchdogをリフレッシュ（trace_flag==1の時のみ有効）
+		if (trace_flag == 1)
+		{
+			IWDG->KR = 0xAAAA;
+		}
 
 		// Watchdogリセット後は自動的に停止モードへ
 		if (watchdog_reset_detected && bayado == -1)
@@ -376,10 +370,8 @@ int main(void)
 			//				startTracking(); //cyan
 			//				S_Sensor();
 			//			}
-			// IMUデータはタイマー割り込み(TIM6, 1ms)で読み取り済み
-			// ここではグローバル変数を表示するだけ		__DSB(); // メモリバリア: volatileの最新値を確実に読み込む			printf("Gyro X: %d, Y: %d, Z: %d\r\n", xg, yg, zg);
+			printf("Gyro X: %d, Y: %d, Z: %d\r\n", xg, yg, zg);
 			printf("Accel X: %d, Y: %d, Z: %d\r\n", xa, ya, za);
-			HAL_Delay(100); // 表示間隔を調整
 			//			FanMotor(4000);
 			break;
 		case 2:
@@ -388,10 +380,13 @@ int main(void)
 			bayado = -1;
 			break;
 		case 3:
-			// Flashから全ログを読み込んでシリアル出力
-			printf("Reading all logs from Flash and printing...\r\n");
+			//			FanMotor(4000);
+			//			if (timer2 >= 6000) {
+			//				setTarget(1.8);
+			//				startTracking(); //cyan
+			//				S_Sensor();
 			Log_PrintData_To_Serial();
-			printf("All logs printed successfully.\r\n");
+			//			Log_Test_Read_And_Print();
 			bayado = -1; // 1回実行したらモードを終了
 
 			break;

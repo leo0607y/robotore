@@ -78,15 +78,22 @@ void S_Sensor()
 			uint32_t dt = current_time - RightDetectedTime;
 			if (dt > 100)
 			{
+				// ★★★ 緊急停止：最優先でモーターを停止 ★★★
+
+				bayado = 6;
+				trace_flag = 0;
+				setMotor(0, 0);
+				// トレースフラグも即座にOFF
+
 				Stop_Flag = true;
 				lion = 6;
-
-				setMotor(0, 0);
 				Marker_State = 0;
 				Start_Flag = false;
 				Stop_Flag = false;
+
+				// Flash書き込みは停止後に実行
+				printf("Goal detected! Motor stopped. Saving logs...\r\n");
 				WriteData();
-				bayado = 6;
 			}
 		}
 	}

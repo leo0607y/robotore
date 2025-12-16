@@ -182,6 +182,10 @@ void Log_PrintData_To_Serial(void)
 	loadFlash(start_adress_sector11, (uint8_t *)data, sizeof(LogData_t) * dc);
 
 	printf("Flash Log Data (%d entries):\r\n", dc);
+	printf("Starting data output...\r\n");
+	printf("This will take approximately %d seconds...\r\n", (dc / 10) * 50 / 1000);
+	printf("Note: Watchdog is disabled during data output.\r\n");
+
 	for (uint16_t i = 0; i < dc; i++)
 	{
 		//      Log_ReadData(&log_entry, i); // この行はコメントアウトしたまま
@@ -189,12 +193,21 @@ void Log_PrintData_To_Serial(void)
 			   i, data[i].left_encoder_count, data[i].right_encoder_count, // log_entryではなくdata[i]を使用
 			   data[i].curvature_radius);
 
-		// 30エントリごとに少し待機してバッファフラッシュ
-		if ((i + 1) % 30 == 0)
+		// 10エントリごとに待機してバッファフラッシュ
+		if ((i + 1) % 10 == 0)
 		{
-			HAL_Delay(20);
+			HAL_Delay(50); // UARTバッファフラッシュ用
+		}
+
+		// 進捗表示（50エントリごと）
+		if ((i + 1) % 50 == 0)
+		{
+			printf("--- Progress: %d/%d entries ---\r\n", i + 1, dc);
 		}
 	}
+
+	printf("\r\n=== All %d entries output complete ===\r\n", dc);
+	printf("No auto-reset will occur.\r\n");
 	//	printf("Flash Log Data (%d entries):\r\n", dc);
 	//	for (int abc = 0; abc < dc; abc++) {
 	//		printf("Entry %d:Left %d:Right %d:CurrentRadius %.3f\n", abc,
@@ -219,7 +232,7 @@ void WriteData()
 	eraseFlash();																// セクター11を消去
 	writeFlash(start_adress_sector11, (uint8_t *)data, sizeof(LogData_t) * dc); // dc個のデータを書き込み
 	printf("OK\n");
-	lion = 7;
+	// lion = 7; // リセット防止のためコメントアウト
 }
 /**
  * @brief テスト用関数：Flashにランダムな数値を書き込みます。

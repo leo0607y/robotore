@@ -29,6 +29,7 @@ float coefficient[ADC_NUM];
 float offset[ADC_NUM];
 int16_t sensor[ADC_NUM];
 extern int lion;
+volatile uint16_t a_sensor = 0;
 
 UART_HandleTypeDef huart2;
 
@@ -80,6 +81,7 @@ void Sensor_Update(void)
     sensor[9] = ((adc_values[9] - offset[9]) / coefficient[9]) * 1000;
     sensor[10] = ((adc_values[10] - offset[10]) / coefficient[10]) * 1000;
     sensor[11] = ((adc_values[11] - offset[11]) / coefficient[11]) * 1000;
+    a_sensor = (sensor[0] + sensor[1] + sensor[2] + sensor[3] + sensor[4] + sensor[5] + sensor[6] + sensor[7] + sensor[8] + sensor[9] + sensor[10] + sensor[11]) / 12;
 
     //    for (int j = 0; j <= 11; j++)
     //    {

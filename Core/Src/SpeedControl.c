@@ -13,7 +13,7 @@
 // 積分上限: ±15.0（過度な積分を抑制、安定性とレスポンスの両立）
 // 計算例: e=0.2時、PWM = 730*0.2 + 70*15 = 146+1050 = 1196
 // 安全対策: PWM±1599クリッピング + Watchdog(1.5秒)で完全保護
-#define KP 900.0f
+#define KP 1000.0f
 #define KI 200.0f
 
 float SpeedControl(float target_velocity, float current_velocity, float *integral)
