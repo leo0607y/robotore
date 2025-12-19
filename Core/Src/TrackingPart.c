@@ -46,8 +46,8 @@ void ControlLineTracking(void)
 	static float i;
 	//	float kp = 0.0072;
 	//	float kd = 0.00013;
-	float kp = 0.009;	// 2.4m/s
-	float kd = 0.00002; // 2.4m/s
+	float kp = 0.008;	// 2.4m/s
+	float kd = 0.00000; // 2.4m/s
 	//	float kp = 0.018;	// 2.6m/s
 	//	float kd = 0.00008; // 2.6m/s
 
@@ -196,7 +196,7 @@ void CourseOut(void)
 		}
 
 		// どちらかの条件が50ms継続したらコースアウト
-		if (unable_cnt >= 50 || unable_cnt_all_high >= 50)
+		if (unable_cnt >= 80 || unable_cnt_all_high >= 50)
 		{
 			Unable_to_run_flag = true;
 			Marker_State = 0;
