@@ -46,8 +46,8 @@ void ControlLineTracking(void)
 	static float i;
 	//	float kp = 0.0072;
 	//	float kd = 0.00013;
-	float kp = 0.008;	// 2.4m/s
-	float kd = 0.00000; // 2.4m/s
+	float kp = 0.005;	// 2.4m/s
+	float kd = 0.000002; // 2.4m/s
 	//	float kp = 0.018;	// 2.6m/s
 	//	float kd = 0.00008; // 2.6m/s
 
@@ -166,7 +166,7 @@ void CourseOut(void)
 
 		// 条件1: 平均値が900超
 		all_sensor = (sensor[0] + sensor[1] + sensor[2] + sensor[3] + sensor[4] + sensor[5] + sensor[6] + sensor[7] + sensor[8] + sensor[9] + sensor[10] + sensor[11]) / 12;
-		if (all_sensor > 900)
+		if (all_sensor > 920)
 		{
 			unable_cnt++;
 		}
@@ -196,14 +196,24 @@ void CourseOut(void)
 		}
 
 		// どちらかの条件が50ms継続したらコースアウト
-		if (unable_cnt >= 80 || unable_cnt_all_high >= 50)
+		if (unable_cnt >= 80 || unable_cnt_all_high >= 70)
 		{
 			Unable_to_run_flag = true;
 			Marker_State = 0;
 			Start_Flag = false;
 			Stop_Flag = false;
 			bayado = 6; // mainにあるlionと同じ変数に戻す
-			lion = 1;
+			
+			// どちらの条件で停止したかをlionで区別
+			if (unable_cnt >= 80)
+			{
+				lion = 1; // 条件1：平均値900超で停止
+			}
+			else
+			{
+				lion = 0; // 条件2：全センサ500超で停止
+			}
+			
 			setMotor(0, 0);
 			trace_flag = 0;
 		}
