@@ -45,6 +45,16 @@ void Log_Init(void)
 	log_write_address = LOG_FLASH_START_ADDR;
 	log_count = 0;
 	integrated_angle = 0.0f;
+	filtered_angular_velocity = 0.0f;
+	dc = 0;
+}
+
+void Log_Reset(void)
+{
+	// ★2回目以降の走行用★ ログ関連の状態変数をリセット
+	integrated_angle = 0.0f;
+	filtered_angular_velocity = 0.0f;
+	dc = 0;
 }
 
 /**

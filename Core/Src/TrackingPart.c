@@ -46,7 +46,7 @@ void ControlLineTracking(void)
 	static float i;
 	//	float kp = 0.0072;
 	//	float kd = 0.00013;
-	float kp = 0.005;	// 2.4m/s
+	float kp = 0.005;	 // 2.4m/s
 	float kd = 0.000002; // 2.4m/s
 	//	float kp = 0.018;	// 2.6m/s
 	//	float kd = 0.00008; // 2.6m/s
@@ -143,6 +143,20 @@ void TraceFlip(void)
 	}
 }
 
+void ResetAllTrackingVariables(void)
+{
+	// ★重要★ 2回目以降の走行のため、全ての状態変数を初期化
+	integral_left = 0.0f;
+	integral_right = 0.0f;
+	pre_diff = 0.0f;
+	tracking_term = 0.0f;
+	diff = 0.0f;
+	Unable_to_run_flag = false;
+	is_on_tracking_curve = false;
+	trace_flag = 0;
+	i_clear_flag = 0;
+}
+
 void startTracking(void)
 {
 	trace_flag = 1;
@@ -203,7 +217,7 @@ void CourseOut(void)
 			Start_Flag = false;
 			Stop_Flag = false;
 			bayado = 6; // mainにあるlionと同じ変数に戻す
-			
+
 			// どちらの条件で停止したかをlionで区別
 			if (unable_cnt >= 80)
 			{
@@ -213,7 +227,7 @@ void CourseOut(void)
 			{
 				lion = 0; // 条件2：全センサ500超で停止
 			}
-			
+
 			setMotor(0, 0);
 			trace_flag = 0;
 		}

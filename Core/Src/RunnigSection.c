@@ -20,6 +20,16 @@ static int16_t Fan;
 float ref_distance;
 extern int lion, bayado;
 
+// S_Sensorの静的変数（グローバルスコープに移動してリセット可能にする）
+static bool prev_side_sensor_r_global = false;
+static uint32_t start_passed_time_global = 0;
+
+void Reset_S_Sensor_State(void)
+{
+	prev_side_sensor_r_global = false;
+	start_passed_time_global = 0;
+}
+
 void Fan_Ctrl(void)
 {
 	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, Fan);
@@ -39,26 +49,23 @@ void S_Sensor()
 	bool side_sensor_r = (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_2) == GPIO_PIN_RESET); // R: ライン上
 	bool side_sensor_l = (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_3) == GPIO_PIN_RESET); // L: ライン上
 
-	static bool prev_side_sensor_r = false;
-	static uint32_t start_passed_time = 0;
-
 	if (!Start_Flag)
 	{
 		// スタート判定は右センサの立ち上がりだけで判定
-		bool rising_edge_r = (!prev_side_sensor_r && side_sensor_r);
+		bool rising_edge_r = (!prev_side_sensor_r_global && side_sensor_r);
 		if (rising_edge_r)
 		{
 			Start_Flag = true;
 			Marker_State = 1;
-			start_passed_time = HAL_GetTick(); // スタート時刻を保存
+			start_passed_time_global = HAL_GetTick(); // スタート時刻を保存
 		}
 	}
 	else if (Start_Flag && !Stop_Flag && !is_on_tracking_curve)
 	{
-		bool rising_edge_r = (!prev_side_sensor_r && side_sensor_r);
+		bool rising_edge_r = (!prev_side_sensor_r_global && side_sensor_r);
 		uint32_t current_time = HAL_GetTick();
 
-		if (Marker_State == 1 && rising_edge_r && (current_time - start_passed_time) > 1000)
+		if (Marker_State == 1 && rising_edge_r && (current_time - start_passed_time_global) > 1000)
 		{
 			RightDetectedTime = current_time;
 			Marker_State = 2;
@@ -98,5 +105,5 @@ void S_Sensor()
 		}
 	}
 
-	prev_side_sensor_r = side_sensor_r;
+	prev_side_sensor_r_global = side_sensor_r;
 }

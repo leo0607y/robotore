@@ -19,6 +19,7 @@ float getLineFollowingTerm(void);
 
 void startTracking(void);
 void stopTracking(void);
+void ResetAllTrackingVariables(void);
 
 void CourseOut(void);
 bool getUnableToRunFlag(void);

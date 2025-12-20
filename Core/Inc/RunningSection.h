@@ -11,9 +11,10 @@
 #include "tim.h"
 #include <stdlib.h>
 
-//void updateSideSensorStatus();
+// void updateSideSensorStatus();
 void Fan_Ctrl();
 void FanMotor(int16_t);
 void S_Sensor();
+void Reset_S_Sensor_State(void);
 
 #endif

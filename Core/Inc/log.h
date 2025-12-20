@@ -24,6 +24,7 @@ extern uint16_t dc; // ログエントリ数のカウンタ
 
 // 関数プロトタイプ宣言
 void Log_Init(void);
+void Log_Reset(void);
 void Log_SaveData(LogData_t data);
 void Log_ReadData(LogData_t *data, uint16_t index);
 void Log_Erase(void);

@@ -291,9 +291,18 @@ int main(void)
 		}
 		if (StatusR('R') == 0 && sw2 == 2)
 		{
+			// ★★★ 重要 ★★★
+			// 右ボタンが押されたとき（走行モード確定時）に全ての変数を初期化
+			// これにより2回目以降の走行でもフリーズしない
 			Marker_State = 0;
 			Start_Flag = false;
 			Stop_Flag = false;
+
+			// 全ての状態変数をリセット
+			ResetAllTrackingVariables();
+			Log_Reset();
+			Reset_S_Sensor_State();
+
 			timer2 = 0;
 			// 3秒待機中もWatchdogリフレッシュ（誤判定防止）
 			for (int i = 0; i < 30; i++)
@@ -399,14 +408,14 @@ int main(void)
 				S_Sensor();
 
 				// 現在の左右速度とエンコーダ値を表示
-//				float current_speed_l, current_speed_r;
-//				int16_t enc_l, enc_r;
-//				getCurrentVelocity(&current_speed_l, &current_speed_r);
-//				getEncoderCnt(&enc_l, &enc_r);
-//				extern int16_t mon_rev_l, mon_rev_r;
-//				float center_speed = (current_speed_l + current_speed_r) / 2.0f;
-//				printf("L:%.3f R:%.3f | Center:%.3f | EncL:%d EncR:%d | PWML:%d PWMR:%d | Target:%.1f\r\n",
-//					   current_speed_l, current_speed_r, center_speed, enc_l, enc_r, mon_rev_l, mon_rev_r, getTarget());
+				//				float current_speed_l, current_speed_r;
+				//				int16_t enc_l, enc_r;
+				//				getCurrentVelocity(&current_speed_l, &current_speed_r);
+				//				getEncoderCnt(&enc_l, &enc_r);
+				//				extern int16_t mon_rev_l, mon_rev_r;
+				//				float center_speed = (current_speed_l + current_speed_r) / 2.0f;
+				//				printf("L:%.3f R:%.3f | Center:%.3f | EncL:%d EncR:%d | PWML:%d PWMR:%d | Target:%.1f\r\n",
+				//					   current_speed_l, current_speed_r, center_speed, enc_l, enc_r, mon_rev_l, mon_rev_r, getTarget());
 			}
 			break;
 		case 5:
