@@ -1,6 +1,7 @@
 #include "RunningSection.h"
 #include "TrackingPart.h"
 #include "log.h"
+#include "stdio.h"
 
 // static float velocity_table[5000];
 // static int16_t acceleration_table[5000];
