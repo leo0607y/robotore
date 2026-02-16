@@ -19,6 +19,9 @@ extern volatile int16_t 	xg, yg, zg;	//  角加速度(16bitデータ)
 extern float zg_offset; // Z軸角速度のオフセット補正値 (Raw Value)
 void IMU_CalibrateGyro(void); // ジャイロキャリブレーション関数のプロトタイプ宣言
 
+// Gyro sensitivity for +/-2000 dps range
+#define GYRO_SENS_LSB_PER_DPS 16.4f
+
 #define CS_RESET HAL_GPIO_WritePin(GPIOD, GPIO_PIN_2, GPIO_PIN_RESET)
 #define CS_SET   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_2, GPIO_PIN_SET)
 

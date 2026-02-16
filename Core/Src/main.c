@@ -57,7 +57,15 @@ extern SPI_HandleTypeDef hspi3;
 /* USER CODE BEGIN PD */
 /* USER CODE END PD */
 
-/* Private macro -------------------------------------------------------------*/
+#define CALIB_EXPECTED_DISTANCE_M 1.0f
+#define CALIB_TARGET_SPEED_M_S 0.9f
+static bool calib_started = false;
+static bool calib_output_pending = false;
+static bool calib_last_valid = false;
+static float calib_last_measured_m = 0.0f;
+static float calib_last_scale = 0.0f;
+static bool calib_wait_start_marker = false;
+static bool calib_prev_start_flag = false;
 /* USER CODE BEGIN PM */
 
 /* USER CODE END PM */
@@ -261,11 +269,18 @@ int main(void)
 
 	while (1)
 	{
+		static int8_t prev_trace_flag = 0;
 		// Watchdogをリフレッシュ（trace_flag==1の時のみ有効）
 		if (trace_flag == 1)
 		{
 			IWDG->KR = 0xAAAA;
 		}
+
+		if (prev_trace_flag == 1 && trace_flag == 0 && dc > 0)
+		{
+			WriteData_Request = true;
+		}
+		prev_trace_flag = trace_flag;
 
 		// Watchdogリセット後は自動的に停止モードへ
 		if (watchdog_reset_detected && bayado == -1)
@@ -273,6 +288,14 @@ int main(void)
 			bayado = 6; // 停止モード
 			watchdog_reset_detected = false;
 			//			printf("[WARNING] Watchdog reset detected. System stopped safely.\r\n");
+		}
+
+		if (WriteData_Request)
+		{
+			WriteData_Request = false;
+			printf("Saving logs to Flash...\r\n");
+			WriteData();
+			printf("Logs saved.\r\n");
 		}
 
 		//		// --- 右ボタン: lionをCaseとして確定 ---
@@ -292,16 +315,19 @@ int main(void)
 		if (StatusR('R') == 0 && sw2 == 2)
 		{
 			// ★★★ 重要 ★★★
-			// 右ボタンが押されたとき（走行モード確定時）に全ての変数を初期化
-			// これにより2回目以降の走行でもフリーズしない
-			Marker_State = 0;
-			Start_Flag = false;
-			Stop_Flag = false;
+			// 走行モード確定時のみ状態を初期化
+			if (lion == 4 || lion == 5)
+			{
+				Marker_State = 0;
+				Start_Flag = false;
+				Stop_Flag = false;
 
-			// 全ての状態変数をリセット
-			ResetAllTrackingVariables();
-			Log_Reset();
-			Reset_S_Sensor_State();
+				// 全ての状態変数をリセット
+				ResetAllTrackingVariables();
+				Log_Reset();
+				Reset_S_Sensor_State();
+				WriteData_Request = false;
+			}
 
 			timer2 = 0;
 			// 3秒待機中もWatchdogリフレッシュ（誤判定防止）
@@ -369,19 +395,75 @@ int main(void)
 		switch (bayado)
 		{
 		case 0:
-			//			Log_Erase();
-			//			bayado = -1;
+			FanMotor(4000);
+			if (!calib_started && timer2 >= 6000)
+			{
+				setTarget(CALIB_TARGET_SPEED_M_S);
+				ResetAllTrackingVariables();
+				Log_Reset();
+				Reset_S_Sensor_State();
+				clearTotalDistance();
+				startTracking();
+				calib_wait_start_marker = true;
+				calib_prev_start_flag = Start_Flag;
+				calib_started = false;
+				calib_output_pending = false;
+			}
+
+			if (trace_flag == 1)
+			{
+				S_Sensor();
+				if (calib_wait_start_marker && Start_Flag && !calib_prev_start_flag)
+				{
+					// Start marker detected: start 1m measurement from here
+					clearTotalDistance();
+					calib_started = true;
+					calib_wait_start_marker = false;
+				}
+				calib_prev_start_flag = Start_Flag;
+
+				if (calib_started && getTotalDistance() >= CALIB_EXPECTED_DISTANCE_M)
+				{
+					stopTracking();
+					setMotor(0, 0);
+					FanMotor(0);
+					calib_started = false;
+					calib_output_pending = true;
+				}
+			}
+
+			if (calib_output_pending && trace_flag == 0)
+			{
+				float dist_m = getTotalDistance();
+				if (dist_m > 0.0f)
+				{
+					float recommended_scale = (CALIB_EXPECTED_DISTANCE_M / dist_m) * ENCODER_SCALE;
+					calib_last_measured_m = dist_m;
+					calib_last_scale = recommended_scale;
+					calib_last_valid = true;
+				}
+				else
+				{
+					calib_last_measured_m = 0.0f;
+					calib_last_scale = 0.0f;
+					calib_last_valid = false;
+				}
+				calib_output_pending = false;
+				bayado = -1;
+			}
 			break;
 		case 1:
-			//			FanMotor(4000);
-			//			if (timer2 >= 6000) {
-			//				setTarget(0.9);
-			//				startTracking(); //cyan
-			//				S_Sensor();
-			//			}
-			printf("Gyro X: %d, Y: %d, Z: %d\r\n", xg, yg, zg);
-			printf("Accel X: %d, Y: %d, Z: %d\r\n", xa, ya, za);
-			//			FanMotor(4000);
+			if (calib_last_valid)
+			{
+				printf("Calib: Expected %.3fm, Measured %.3fm\r\n", CALIB_EXPECTED_DISTANCE_M, calib_last_measured_m);
+				printf("Calib: Recommended ENCODER_SCALE = %.4f\r\n", calib_last_scale);
+			}
+			else
+			{
+				printf("Calib: No stored result. Run mode 0 calibration.\r\n");
+			}
+			Log_PrintDebug_To_Serial();
+			bayado = -1;
 			break;
 		case 2:
 			printf("Mode 2: Writing data...\r\n");
@@ -404,7 +486,11 @@ int main(void)
 			if (timer2 >= 6000)
 			{
 				setTarget(0.9);
-				startTracking(); // cyan
+				if (trace_flag == 0)
+				{
+					clearTotalDistance();
+					startTracking(); // cyan
+				}
 				S_Sensor();
 
 				// 現在の左右速度とエンコーダ値を表示
@@ -423,7 +509,11 @@ int main(void)
 			if (timer2 >= 6000)
 			{
 				setTarget(2.0);
-				startTracking(); // cyan
+				if (trace_flag == 0)
+				{
+					clearTotalDistance();
+					startTracking(); // cyan
+				}
 				S_Sensor();
 
 				// 現在の左右速度とエンコーダ値を表示

@@ -14,7 +14,8 @@
 // #define ENCODER_RESOLUTION 4096.0f                                                         // エンコーダ分解能
 #define ENCODER_RESOLUTION 4096.0f
 #define REDUCTION_RATIO (18.0f / 64.0f)                                                              // 減速比
-#define DISTANCE_PER_CNT (2.0f * PI * WHEEL_RADIUS * REDUCTION_RATIO / ENCODER_RESOLUTION / 1000.0f) //[m/cnt]
+#define ENCODER_SCALE 1.0f                                                                            // 距離/速度スケール補正（実測で調整）
+#define DISTANCE_PER_CNT (ENCODER_SCALE * 2.0f * PI * WHEEL_RADIUS * REDUCTION_RATIO / ENCODER_RESOLUTION / 1000.0f) //[m/cnt]
 #define CNT_OFFSET 32768
 
 extern int32_t enc_l_total;

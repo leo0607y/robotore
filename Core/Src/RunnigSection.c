@@ -16,6 +16,8 @@ bool Stop_Flag = false;
 uint8_t Marker_State = 0; // 0: idle, 1: start passed, 2: goal candidate
 uint32_t RightDetectedTime = 0;
 
+bool WriteData_Request = false;
+
 static int16_t Fan;
 
 float ref_distance;
@@ -24,11 +26,13 @@ extern int lion, bayado;
 // S_Sensorの静的変数（グローバルスコープに移動してリセット可能にする）
 static bool prev_side_sensor_r_global = false;
 static uint32_t start_passed_time_global = 0;
+static uint32_t start_hold_time_global = 0;
 
 void Reset_S_Sensor_State(void)
 {
 	prev_side_sensor_r_global = false;
 	start_passed_time_global = 0;
+	start_hold_time_global = 0;
 }
 
 void Fan_Ctrl(void)
@@ -59,6 +63,26 @@ void S_Sensor()
 			Start_Flag = true;
 			Marker_State = 1;
 			start_passed_time_global = HAL_GetTick(); // スタート時刻を保存
+			start_hold_time_global = 0;
+		}
+		else if (side_sensor_r)
+		{
+			// 右センサが最初からONでも取りこぼさないようにホールド判定
+			if (start_hold_time_global == 0)
+			{
+				start_hold_time_global = HAL_GetTick();
+			}
+			if ((HAL_GetTick() - start_hold_time_global) >= 20)
+			{
+				Start_Flag = true;
+				Marker_State = 1;
+				start_passed_time_global = HAL_GetTick();
+				start_hold_time_global = 0;
+			}
+		}
+		else
+		{
+			start_hold_time_global = 0;
 		}
 	}
 	else if (Start_Flag && !Stop_Flag && !is_on_tracking_curve)
@@ -99,9 +123,7 @@ void S_Sensor()
 				Start_Flag = false;
 				Stop_Flag = false;
 
-				// Flash書き込みは停止後に実行
-				printf("Goal detected! Motor stopped. Saving logs...\r\n");
-				WriteData();
+				// Flash書き込みは停止後に実行（メインループで検出）
 			}
 		}
 	}

@@ -15,26 +15,35 @@
 #include "Flash.h"	  //
 #include "IMU20649.h" //
 #include "Encoder.h"  //
+#include "TrackingPart.h"
 #include "flash2.h"
 
-#define MIN_COURSE_RADIUS_M (0.09f) // R10cm（コースの最小曲率半径 - 確定値）
-// コースの最大半径が不明なため、実用上の上限を100mに設定。
-// これを超える値は、走行中のノイズによる「ほぼ直線」と見なす。
-#define MAX_PRACTICAL_RADIUS_M (10.0f)
+#define MIN_COURSE_RADIUS_M (0.10f) // R10cm（コースの最小曲率半径 - 確定値）
+#define ANGLE_EPS_RAD (0.002f)      // 10mm区間での角度がこれ未満なら直線扱い
 
 #define ZG_FILTER_ALPHA 0.2037f
 static float filtered_angular_velocity = 0.0f;
 #define DEG_TO_RAD 0.0174532925f // PI / 180
+#define GYRO_SCALE 1.0f           // 角速度補正係数（実測で調整）
 
 static uint32_t log_write_address;
 static uint16_t log_count;
-static LogData_t data[4000];
+static LogData_t data[LOG_MAX_ENTRIES];
+static float debug_omega_rad_s[LOG_MAX_ENTRIES];
+static float debug_v_m_s[LOG_MAX_ENTRIES];
+static float debug_target_m_s[LOG_MAX_ENTRIES];
+static float debug_pwm_abs[LOG_MAX_ENTRIES];
 uint16_t dc = 0; // extern宣言されているためstaticを削除、型をuint16_tに統一
 extern int lion;
 extern float zg_offset;
+extern bool Start_Flag;
 
 // 曲率半径計算用の静的変数
 static float integrated_angle = 0.0f; // 角度積算値[rad]
+static bool prev_start_flag = false;
+static float segment_time_s = 0.0f;
+static float omega_sum_rad = 0.0f;
+static uint32_t omega_samples = 0;
 
 /**
  * @brief ログ機能を初期化します。
@@ -42,11 +51,15 @@ static float integrated_angle = 0.0f; // 角度積算値[rad]
 void Log_Init(void)
 {
 	// 書き込みアドレスの初期化
-	log_write_address = LOG_FLASH_START_ADDR;
+	log_write_address = LOG_FLASH_START_ADDR + LOG_FLASH_HEADER_SIZE;
 	log_count = 0;
 	integrated_angle = 0.0f;
 	filtered_angular_velocity = 0.0f;
 	dc = 0;
+	prev_start_flag = false;
+	segment_time_s = 0.0f;
+	omega_sum_rad = 0.0f;
+	omega_samples = 0;
 }
 
 void Log_Reset(void)
@@ -55,6 +68,10 @@ void Log_Reset(void)
 	integrated_angle = 0.0f;
 	filtered_angular_velocity = 0.0f;
 	dc = 0;
+	prev_start_flag = false;
+	segment_time_s = 0.0f;
+	omega_sum_rad = 0.0f;
+	omega_samples = 0;
 }
 
 /**
@@ -71,10 +88,6 @@ void Log_SaveData(LogData_t data)
 
 	// Flashにログデータを書き込む
 	// 個々の書き込み関数がロック/アンロックを管理するため、ここでは行わない
-	FLASH_Write_Word_S(log_write_address, data.left_encoder_count);
-	log_write_address += sizeof(int32_t);
-	FLASH_Write_Word_S(log_write_address, data.right_encoder_count);
-	log_write_address += sizeof(int32_t);
 	FLASH_Write_Word_F(log_write_address, data.curvature_radius);
 	log_write_address += sizeof(float);
 
@@ -95,7 +108,7 @@ void Log_ReadData(LogData_t *data, uint16_t index)
 		return;
 	}
 
-	uint32_t read_address = LOG_FLASH_START_ADDR + (index * sizeof(LogData_t));
+	uint32_t read_address = LOG_FLASH_START_ADDR + LOG_FLASH_HEADER_SIZE + (index * sizeof(LogData_t));
 	memcpy(data, (void *)read_address, sizeof(LogData_t));
 }
 
@@ -108,7 +121,7 @@ void Log_Erase(void)
 	FLASH_EreaseSector(LOG_FLASH_SECTOR);
 
 	// 状態をリセット
-	log_write_address = LOG_FLASH_START_ADDR;
+	log_write_address = LOG_FLASH_START_ADDR + LOG_FLASH_HEADER_SIZE;
 	log_count = 0;
 	integrated_angle = 0.0f;
 }
@@ -128,43 +141,71 @@ uint16_t Log_GetCount(void)
  */
 void Log_CalculateAndSave(void)
 {
+	if (!Start_Flag)
+	{
+		prev_start_flag = false;
+		return;
+	}
+
+	if (!prev_start_flag && Start_Flag)
+	{
+		// Start marker detected: align integration with start position
+		integrated_angle = 0.0f;
+		filtered_angular_velocity = 0.0f;
+		segment_time_s = 0.0f;
+		omega_sum_rad = 0.0f;
+		omega_samples = 0;
+		clearDistance();
+	}
+	prev_start_flag = Start_Flag;
 
 	// 1. 生の角速度（オフセット補正後）を計算
-	float raw_angular_velocity_z = ((float)zg - zg_offset) / 16.4f;
+	float raw_angular_velocity_z = ((float)zg - zg_offset) / GYRO_SENS_LSB_PER_DPS;
+	raw_angular_velocity_z *= GYRO_SCALE;
 
 	// 2. IIRフィルタを適用してノイズ除去（filtered_angular_velocityを更新）
 	// filtered_angular_velocity = (1 - α) * pre_filtered_value + α * raw_value
 	filtered_angular_velocity = (1.0f - ZG_FILTER_ALPHA) * filtered_angular_velocity + ZG_FILTER_ALPHA * raw_angular_velocity_z;
 
 	// 3. 角度積算には平滑化された値を使用
-	integrated_angle += filtered_angular_velocity * DEG_TO_RAD * 0.001f; // 0.001f は dt(1ms)
+	{
+		float omega_rad_s = filtered_angular_velocity * DEG_TO_RAD;
+		integrated_angle += omega_rad_s * 0.001f; // 0.001f は dt(1ms)
+		segment_time_s += 0.001f;
+		omega_sum_rad += omega_rad_s;
+		omega_samples++;
+	}
 																		 //	printf("%f\n", getDistance());
 
-	if (getDistance() >= 10.0f / 1000.0f)
+	float segment_distance = getDistance();
+	if (segment_distance >= 10.0f / 1000.0f)
 	{
 		LogData_t new_log;
+ 		float avg_omega_rad_s = 0.0f;
+ 		float avg_v_m_s = 0.0f;
 
-		// 既存のログデータ項目を埋める
-		new_log.left_encoder_count = enc_l_total;  //
-		new_log.right_encoder_count = enc_r_total; //
-
-		if (fabsf(integrated_angle) > 0.001f)
+		if (dc >= LOG_MAX_ENTRIES)
 		{
-			float calculated_radius = getDistance() / integrated_angle;
-			float abs_calculated_radius = fabsf(calculated_radius); // 絶対値を取得
+			return;
+		}
 
-			// ★★★ 修正: 上限フィルタリングの追加 ★★★
-			// |R| < 0.09m（最小半径未満） OR |R| > 10.0m（実用最大半径超）の場合、直線(0.0f)として記録
-			if (abs_calculated_radius < MIN_COURSE_RADIUS_M || abs_calculated_radius > MAX_PRACTICAL_RADIUS_M)
+		if (omega_samples > 0)
+		{
+			avg_omega_rad_s = omega_sum_rad / (float)omega_samples;
+		}
+		if (segment_time_s > 0.0f)
+		{
+			avg_v_m_s = segment_distance / segment_time_s;
+		}
+
+		if (fabsf(integrated_angle) > ANGLE_EPS_RAD)
+		{
+			float calculated_radius = segment_distance / integrated_angle;
+			if (fabsf(calculated_radius) < MIN_COURSE_RADIUS_M)
 			{
-				new_log.curvature_radius = 0.0f; // ノイズ/実質的な直線
+				calculated_radius = copysignf(MIN_COURSE_RADIUS_M, calculated_radius);
 			}
-			else
-			{
-				// 0.09m <= |R| <= 10.0m の有効なカーブ
-				new_log.curvature_radius = calculated_radius;
-			}
-			// ★★★ 修正はここまで ★★★
+			new_log.curvature_radius = calculated_radius;
 		}
 		else
 		{
@@ -173,12 +214,47 @@ void Log_CalculateAndSave(void)
 
 		//        Log_SaveData(new_log);
 		data[dc] = new_log;
+		debug_omega_rad_s[dc] = avg_omega_rad_s;
+		debug_v_m_s[dc] = avg_v_m_s;
+		debug_target_m_s[dc] = getTarget();
+		debug_pwm_abs[dc] = getDebugPwmAbsMax();
 
 		// ログ保存後、距離と角度をリセット
 		clearDistance(); //
 		integrated_angle = 0.0f;
+		segment_time_s = 0.0f;
+		omega_sum_rad = 0.0f;
+		omega_samples = 0;
 		dc++;
 	}
+}
+
+/**
+ * @brief 走行中にRAMへ保存したomegaとvをシリアル出力します。
+ * bayadoが0の時に呼び出されることを想定しています。
+ */
+void Log_PrintDebug_To_Serial(void)
+{
+	printf("Debug Log (omega, v) %u entries:\r\n", dc);
+	if (dc == 0)
+	{
+		printf("No debug data in RAM.\r\n");
+		return;
+	}
+
+	for (uint16_t i = 0; i < dc; i++)
+	{
+		float dist_m = (float)i * 0.01f;
+		printf("Dbg %u: Dist(m): %.3f, Omega(rad/s): %.4f, V(m/s): %.3f, Target: %.3f, PWM: %.0f\r\n",
+			   i, dist_m, debug_omega_rad_s[i], debug_v_m_s[i], debug_target_m_s[i], debug_pwm_abs[i]);
+
+		if ((i + 1) % 10 == 0)
+		{
+			HAL_Delay(50);
+		}
+	}
+
+	printf("\r\n=== Debug output complete ===\r\n");
 }
 
 /**
@@ -187,21 +263,37 @@ void Log_CalculateAndSave(void)
  */
 void Log_PrintData_To_Serial(void)
 {
-	//    LogData_t log_entry;
-	// Flashデータを一度だけ読み込む（ループの外）
-	loadFlash(start_adress_sector11, (uint8_t *)data, sizeof(LogData_t) * dc);
+	uint32_t stored_count = *(__IO uint32_t *)LOG_FLASH_START_ADDR;
+	printf("Header count: %lu\r\n", stored_count);
+	if (stored_count == 0xFFFFFFFFU)
+	{
+		stored_count = 0;
+	}
+	if (stored_count > LOG_MAX_ENTRIES)
+	{
+		stored_count = LOG_MAX_ENTRIES;
+	}
 
-	printf("Flash Log Data (%d entries):\r\n", dc);
+	if (stored_count == 0)
+	{
+		printf("Flash Log Data (0 entries):\r\n");
+		printf("No data found in Flash.\r\n");
+		return;
+	}
+
+	// Flashデータを一度だけ読み込む（ループの外）
+	loadFlash(LOG_FLASH_START_ADDR + LOG_FLASH_HEADER_SIZE, (uint8_t *)data, sizeof(LogData_t) * stored_count);
+
+	printf("Flash Log Data (%lu entries):\r\n", stored_count);
 	printf("Starting data output...\r\n");
-	printf("This will take approximately %d seconds...\r\n", (dc / 10) * 50 / 1000);
+	printf("This will take approximately %lu seconds...\r\n", (stored_count / 10) * 50 / 1000);
 	printf("Note: Watchdog is disabled during data output.\r\n");
 
-	for (uint16_t i = 0; i < dc; i++)
+	for (uint16_t i = 0; i < stored_count; i++)
 	{
-		//      Log_ReadData(&log_entry, i); // この行はコメントアウトしたまま
-		printf("Entry %d: Left Enc: %d, Right Enc: %d, Curvature Radius: %.2f\r\n",
-			   i, data[i].left_encoder_count, data[i].right_encoder_count, // log_entryではなくdata[i]を使用
-			   data[i].curvature_radius);
+		float dist_m = (float)i * 0.01f;
+		printf("Entry %d: Dist(m): %.3f, Curvature Radius: %.3f\r\n",
+			   i, dist_m, data[i].curvature_radius);
 
 		// 10エントリごとに待機してバッファフラッシュ
 		if ((i + 1) % 10 == 0)
@@ -212,35 +304,32 @@ void Log_PrintData_To_Serial(void)
 		// 進捗表示（50エントリごと）
 		if ((i + 1) % 50 == 0)
 		{
-			printf("--- Progress: %d/%d entries ---\r\n", i + 1, dc);
+			printf("--- Progress: %d/%lu entries ---\r\n", i + 1, stored_count);
 		}
 	}
 
-	printf("\r\n=== All %d entries output complete ===\r\n", dc);
+	printf("\r\n=== All %lu entries output complete ===\r\n", stored_count);
 	printf("No auto-reset will occur.\r\n");
 	//	printf("Flash Log Data (%d entries):\r\n", dc);
 	//	for (int abc = 0; abc < dc; abc++) {
-	//		printf("Entry %d:Left %d:Right %d:CurrentRadius %.3f\n", abc,
-	//				data[abc].left_encoder_count, data[abc].right_encoder_count,
-	//				data[abc].curvature_radius);
+	//		printf("Entry %d: Dist(m): %.3f, Curvature Radius: %.3f\n", abc,
+	//				(float)abc * 0.01f, data[abc].curvature_radius);
 	//	}
 }
 void WriteData()
 {
-	//	for (int abc = 0; abc < dc; abc++) {
-	////		FLASH_Write_Word_S(log_write_address, data[abc].left_encoder_count);
-	////			log_write_address += sizeof(int16_t);
-	////			FLASH_Write_Word_S(log_write_address, data[abc].right_encoder_count);
-	////			log_write_address += sizeof(int16_t);
-	////			FLASH_Write_Word_F(log_write_address, data[abc].curvature_radius);
-	////			log_write_address += sizeof(float);
-	//
-	//		writeFlash(start_adress_sector11, (uint8_t*) data,
-	//				sizeof(LogData_t) * 1000);
-	//		printf("%d\n", abc);
-	//	}
-	eraseFlash();																// セクター11を消去
-	writeFlash(start_adress_sector11, (uint8_t *)data, sizeof(LogData_t) * dc); // dc個のデータを書き込み
+	uint32_t write_address = LOG_FLASH_START_ADDR;
+
+	FLASH_EreaseSector(LOG_FLASH_SECTOR);
+	FLASH_Write_Word(write_address, (uint32_t)dc);
+	write_address += LOG_FLASH_HEADER_SIZE;
+
+	for (uint16_t i = 0; i < dc; i++)
+	{
+		FLASH_Write_Word_F(write_address, data[i].curvature_radius);
+		write_address += sizeof(float);
+	}
+
 	printf("OK\n");
 	// lion = 7; // リセット防止のためコメントアウト
 }
@@ -278,4 +367,25 @@ void Log_Test_Read_And_Print(void)
 		test_address += sizeof(uint32_t);
 	}
 	printf("Reading complete.\r\n");
+}
+
+void Log_Test_WritePattern(uint16_t count)
+{
+	if (count > LOG_MAX_ENTRIES)
+	{
+		count = LOG_MAX_ENTRIES;
+	}
+
+	for (uint16_t i = 0; i < count; i++)
+	{
+		data[i].curvature_radius = 0.1f * (float)i;
+	}
+
+	dc = count;
+	WriteData();
+}
+
+void Log_Test_ReadPattern(void)
+{
+	Log_PrintData_To_Serial();
 }

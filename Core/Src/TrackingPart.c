@@ -5,6 +5,18 @@
 
 #define DELTA_T 0.001
 #define STRAIGHT_DIFF_THRESHOLD 100.0f
+#define TRACKING_TERM_MAX 1.2f
+#define CURVE_TARGET_GAIN 0.25f
+#define CENTER_SPEED_K 0.6f
+
+static float clampf(float value, float min_value, float max_value)
+{
+	if (value < min_value)
+		return min_value;
+	if (value > max_value)
+		return max_value;
+	return value;
+}
 
 int8_t trace_flag;
 static uint8_t i_clear_flag;
@@ -28,6 +40,8 @@ float diff = 0;
 
 static float integral_left = 0.0;
 static float integral_right = 0.0;
+static float debug_pwm_left = 0.0f;
+static float debug_pwm_right = 0.0f;
 
 volatile uint16_t all_sensor = 0;
 
@@ -119,6 +133,7 @@ void TraceFlip(void)
 		float current_speed_right = 0.0;
 		getCurrentVelocity(&current_speed_left, &current_speed_right);
 		float TargetSpeed = getTarget();
+		float center_speed = (current_speed_left + current_speed_right) * 0.5f;
 
 		// 理想的な中心速度制御：
 		// 各モーターの目標速度を設定し、平均がTargetになるようにする
@@ -126,8 +141,13 @@ void TraceFlip(void)
 		// 右目標 = Target + tracking_term
 		// → (左目標 + 右目標) / 2 = Target が保証される
 
-		float target_speed_left = TargetSpeed - tracking_term;
-		float target_speed_right = TargetSpeed + tracking_term;
+		float tracking_term_limited = clampf(tracking_term, -TRACKING_TERM_MAX, TRACKING_TERM_MAX);
+		float curve_ratio = fabsf(tracking_term_limited) / TRACKING_TERM_MAX;
+		float TargetSpeed_adj = TargetSpeed * (1.0f + CURVE_TARGET_GAIN * curve_ratio);
+		float center_bias = CENTER_SPEED_K * (TargetSpeed_adj - center_speed);
+
+		float target_speed_left = TargetSpeed_adj - tracking_term_limited + center_bias;
+		float target_speed_right = TargetSpeed_adj + tracking_term_limited + center_bias;
 
 		// 各モーターを目標速度に追従させるPI制御
 		float speed_pi_output_left = SpeedControl(target_speed_left,
@@ -135,10 +155,15 @@ void TraceFlip(void)
 		float speed_pi_output_right = SpeedControl(target_speed_right,
 												   current_speed_right, &integral_right);
 
+		debug_pwm_left = speed_pi_output_left;
+		debug_pwm_right = speed_pi_output_right;
+
 		setMotor(speed_pi_output_left, speed_pi_output_right);
 	}
 	else
 	{
+		debug_pwm_left = 0.0f;
+		debug_pwm_right = 0.0f;
 		setMotor(0, 0);
 	}
 }
@@ -257,4 +282,11 @@ void setTarget(float speed)
 float getTarget(void)
 {
 	return Target; // baseSpeedを取得する関数
+}
+
+float getDebugPwmAbsMax(void)
+{
+	float left_abs = fabsf(debug_pwm_left);
+	float right_abs = fabsf(debug_pwm_right);
+	return (left_abs > right_abs) ? left_abs : right_abs;
 }

@@ -30,6 +30,7 @@ extern float tracking_term;
 
 void setTarget(float speed);
 float getTarget(void);
+float getDebugPwmAbsMax(void);
 
 void getCurrentVelocity(float *current_speed_left, float *current_speed_right);
 

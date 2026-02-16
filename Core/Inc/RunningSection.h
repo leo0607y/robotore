@@ -17,4 +17,6 @@ void FanMotor(int16_t);
 void S_Sensor();
 void Reset_S_Sensor_State(void);
 
+extern bool WriteData_Request;
+
 #endif

@@ -12,14 +12,26 @@ volatile int16_t xg, yg, zg; // 角加速度(16bitデータ)
 
 float zg_offset = 0.0f;
 
+static void IMU_SelectBank0(void)
+{
+	uint8_t bank = 0x00;
+	uint8_t reg = 0x7F;
+
+	CS_RESET;
+	HAL_SPI_Transmit(&hspi3, &reg, 1, 100);
+	HAL_SPI_Transmit(&hspi3, &bank, 1, 100);
+	CS_SET;
+}
+
 uint8_t read_byte(uint8_t reg)
 {
-	uint8_t ret, val;
+	uint8_t ret = reg | 0x80;
+	uint8_t val = 0x00;
+	uint8_t dummy = 0x00;
 
-	ret = reg | 0x80;
 	CS_RESET;
 	HAL_SPI_Transmit(&hspi3, &ret, 1, 100);
-	HAL_SPI_Receive(&hspi3, &val, 1, 100);
+	HAL_SPI_TransmitReceive(&hspi3, &dummy, &val, 1, 100);
 	CS_SET;
 
 	return val;
@@ -85,11 +97,10 @@ uint8_t IMU_Init()
 		write_byte(0x03, 0x10); // USER_CTRL	諸々機能無効　SPIonly
 		write_byte(0x7F, 0x20); // USER_BANK2
 
-		// write_byte(0x01,0x06);	//	レンジ±2000dps DLPF disable
-		// write_byte(0x01,0x07);	//range±2000dps DLPF enable DLPFCFG = 0
-		// write_byte(0x01,0x0F);	//range±2000dps DLPF enable DLPFCFG = 1
-		//		write_byte(0x01,0x17);	//range±2000dps DLPF enable DLPFCFG = 2 ICM20648
-		write_byte(0x01, 0x18); // ICM20649_4000dps
+		write_byte(0x01, 0x06); // range +/-2000 dps, DLPF disable
+		// write_byte(0x01, 0x07); // range +/-2000 dps, DLPF enable DLPFCFG = 0
+		// write_byte(0x01, 0x0F); // range +/-2000 dps, DLPF enable DLPFCFG = 1
+		// write_byte(0x01, 0x17); // range +/-2000 dps, DLPF enable DLPFCFG = 2 (ICM20648)
 
 		// 2:1 GYRO_FS_SEL[1:0] 00:±250	01:±500 10:±1000 11:±2000
 		write_byte(0x14, 0x06); //	レンジ±16g
@@ -111,6 +122,7 @@ void read_zg_data()
 
 void read_gyro_data()
 {
+	IMU_SelectBank0();
 	xg = ((uint16_t)read_byte(0x33) << 8) | ((uint16_t)read_byte(0x34));
 	yg = ((uint16_t)read_byte(0x35) << 8) | ((uint16_t)read_byte(0x36));
 	zg = ((uint16_t)read_byte(0x37) << 8) | ((uint16_t)read_byte(0x38));
@@ -123,6 +135,7 @@ void read_xa_data()
 
 void read_accel_data()
 {
+	IMU_SelectBank0();
 	xa = ((uint16_t)read_byte(0x2D) << 8) | ((uint16_t)read_byte(0x2E));
 	ya = ((uint16_t)read_byte(0x2F) << 8) | ((uint16_t)read_byte(0x30));
 	za = ((uint16_t)read_byte(0x31) << 8) | ((uint16_t)read_byte(0x32));
