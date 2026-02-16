@@ -7,14 +7,12 @@
 
 #define DELTA_T 0.001
 
-// PIゲイン: Pは適切、Iを大幅に下げて発振完全除去
-// KP: 730（応答性と安定性のバランスが取れている）
-// KI: 70（100でもPWM552/534と発振継続、70まで大幅低減）
-// 積分上限: ±15.0（過度な積分を抑制、安定性とレスポンスの両立）
-// 計算例: e=0.2時、PWM = 730*0.2 + 70*15 = 146+1050 = 1196
+// PIゲイン: 発振を抑えるためPを下げ、Iは小さく入れて到達性を補う
+// KP: 応答性を維持しつつ発振抑制
+// KI: 目標到達性のため少量
 // 安全対策: PWM±1599クリッピング + Watchdog(1.5秒)で完全保護
-#define KP 2500.0f
-#define KI 100.0f
+#define KP 1000.0f
+#define KI 800.0f
 #define PWM_BIAS 0.0f
 
 float SpeedControl(float target_velocity, float current_velocity, float *integral)

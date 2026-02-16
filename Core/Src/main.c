@@ -59,6 +59,7 @@ extern SPI_HandleTypeDef hspi3;
 
 #define CALIB_EXPECTED_DISTANCE_M 1.0f
 #define CALIB_TARGET_SPEED_M_S 0.9f
+#define MODE0_ENCODER_DIAG 1
 static bool calib_started = false;
 static bool calib_output_pending = false;
 static bool calib_last_valid = false;
@@ -66,6 +67,9 @@ static float calib_last_measured_m = 0.0f;
 static float calib_last_scale = 0.0f;
 static bool calib_wait_start_marker = false;
 static bool calib_prev_start_flag = false;
+static uint32_t enc_diag_last_print_ms = 0;
+static uint32_t enc_diag_last_zero_ms = 0;
+static int32_t enc_l_zero = 0;
 /* USER CODE BEGIN PM */
 
 /* USER CODE END PM */
@@ -395,6 +399,25 @@ int main(void)
 		switch (bayado)
 		{
 		case 0:
+		#if MODE0_ENCODER_DIAG
+			if (StatusR('R') && (timer - enc_diag_last_zero_ms) >= 200)
+			{
+				enc_l_zero = enc_l_total;
+				enc_r_total = 0;
+				resetEncoderCnt();
+				enc_diag_last_zero_ms = timer;
+				printf("Enc: zero set\r\n");
+			}
+
+			if ((timer - enc_diag_last_print_ms) >= 200)
+			{
+				float dist_l = 0.0f;
+				float dist_r = 0.0f;
+				getWheelDistance(&dist_l, &dist_r);
+				printf("DistL: %.4f m, DistR: %.4f m\r\n", dist_l, dist_r);
+				enc_diag_last_print_ms = timer;
+			}
+		#else
 			FanMotor(4000);
 			if (!calib_started && timer2 >= 6000)
 			{
@@ -451,6 +474,7 @@ int main(void)
 				calib_output_pending = false;
 				bayado = -1;
 			}
+		#endif
 			break;
 		case 1:
 			if (calib_last_valid)
@@ -508,7 +532,7 @@ int main(void)
 			FanMotor(4000);
 			if (timer2 >= 6000)
 			{
-				setTarget(2.0);
+				setTarget(1.5);
 				if (trace_flag == 0)
 				{
 					clearTotalDistance();

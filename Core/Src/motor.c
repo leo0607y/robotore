@@ -9,6 +9,8 @@ static int16_t motor_l, motor_r; // 左右モータ出力値
 int16_t rotation_l = 0;          // 左モータ回転量（エンコーダ用）
 int16_t rotation_r = 0;          // 右モータ回転量（エンコーダ用）
 int16_t mon_rev_l, mon_rev_r;    // デバッグ用: PWM値の監視
+int16_t motor_pwm_l = 0;         // デバッグ用: 左モータ実出力PWM値
+int16_t motor_pwm_r = 0;         // デバッグ用: 右モータ実出力PWM値
 
 /**
  * @brief モータPWMの初期化・安全停止
@@ -36,10 +38,10 @@ void motorCtrlFlip(void)
     {
         __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, 0); // 左モーターPWM=0
         __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 0); // 右モーターPWM=0
+        motor_pwm_l = 0;
+        motor_pwm_r = 0;
         return;
     }
-
-    int16_t motor_pwm_l, motor_pwm_r;
 
     // 左モータ制御
     if (motor_l >= 0)

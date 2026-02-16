@@ -5,9 +5,9 @@
 
 #define DELTA_T 0.001
 #define STRAIGHT_DIFF_THRESHOLD 100.0f
-#define TRACKING_TERM_MAX 1.2f
-#define CURVE_TARGET_GAIN 0.25f
-#define CENTER_SPEED_K 0.6f
+#define TRACKING_TERM_MAX 0.5f
+#define CURVE_TARGET_GAIN 0.08f
+#define CENTER_SPEED_K 0.35f
 
 static float clampf(float value, float min_value, float max_value)
 {
