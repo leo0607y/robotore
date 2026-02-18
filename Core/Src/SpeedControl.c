@@ -11,8 +11,8 @@
 // KP: 応答性を維持しつつ発振抑制
 // KI: 目標到達性のため少量
 // 安全対策: PWM±1599クリッピング + Watchdog(1.5秒)で完全保護
-#define KP 1000.0f
-#define KI 800.0f
+#define KP 800.0f
+#define KI 200.0f
 #define PWM_BIAS 0.0f
 
 float SpeedControl(float target_velocity, float current_velocity, float *integral)

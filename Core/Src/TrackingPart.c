@@ -5,7 +5,7 @@
 
 #define DELTA_T 0.001
 #define STRAIGHT_DIFF_THRESHOLD 100.0f
-#define TRACKING_TERM_MAX 0.5f
+#define TRACKING_TERM_MAX 4.0f
 #define CURVE_TARGET_GAIN 0.08f
 #define CENTER_SPEED_K 0.35f
 
@@ -60,7 +60,7 @@ void ControlLineTracking(void)
 	static float i;
 	//	float kp = 0.0072;
 	//	float kd = 0.00013;
-	float kp = 0.005;	 // 2.4m/s
+	float kp = 0.05;	 // 2.4m/s
 	float kd = 0.000002; // 2.4m/s
 	//	float kp = 0.018;	// 2.6m/s
 	//	float kd = 0.00008; // 2.6m/s
