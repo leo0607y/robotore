@@ -291,17 +291,17 @@ int main(void)
 		}
 		if (StatusR('R') == 0 && sw2 == 2)
 		{
-			// ★★★ 重要 ★★★
-			// 右ボタンが押されたとき（走行モード確定時）に全ての変数を初期化
-			// これにより2回目以降の走行でもフリーズしない
-			Marker_State = 0;
-			Start_Flag = false;
-			Stop_Flag = false;
+			// 走行モード確定時のみ状態を初期化
+			if (lion == 4 || lion == 5)
+			{
+				Marker_State = 0;
+				Start_Flag = false;
+				Stop_Flag = false;
 
-			// 全ての状態変数をリセット
-			ResetAllTrackingVariables();
-			Log_Reset();
-			Reset_S_Sensor_State();
+				ResetAllTrackingVariables();
+				Log_Reset();
+				Reset_S_Sensor_State();
+			}
 
 			timer2 = 0;
 			// 3秒待機中もWatchdogリフレッシュ（誤判定防止）
@@ -373,15 +373,9 @@ int main(void)
 			//			bayado = -1;
 			break;
 		case 1:
-			//			FanMotor(4000);
-			//			if (timer2 >= 6000) {
-			//				setTarget(0.9);
-			//				startTracking(); //cyan
-			//				S_Sensor();
-			//			}
-			printf("Gyro X: %d, Y: %d, Z: %d\r\n", xg, yg, zg);
-			printf("Accel X: %d, Y: %d, Z: %d\r\n", xa, ya, za);
-			//			FanMotor(4000);
+			Log_PrintRunData_To_Serial();
+
+			bayado = -1;
 			break;
 		case 2:
 			printf("Mode 2: Writing data...\r\n");

@@ -7,6 +7,11 @@
 // ログデータを格納する構造体
 typedef struct
 {
+    float distance_from_start_m;
+    float speed_m_s;
+    float target_speed_m_s;
+    int16_t pwm_left;
+    int16_t pwm_right;
     int16_t left_encoder_count;
     int16_t right_encoder_count;
     float curvature_radius; // 追加：曲率半径
@@ -30,6 +35,7 @@ void Log_ReadData(LogData_t *data, uint16_t index);
 void Log_Erase(void);
 uint16_t Log_GetCount(void);
 void Log_CalculateAndSave(void);
+void Log_PrintRunData_To_Serial(void);
 void Log_PrintData_To_Serial(void);
 void WriteData(void);
 void Log_Test_Write(void);          // 新規追加

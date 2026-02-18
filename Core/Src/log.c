@@ -15,6 +15,7 @@
 #include "Flash.h"	  //
 #include "IMU20649.h" //
 #include "Encoder.h"  //
+#include "TrackingPart.h"
 #include "flash2.h"
 
 #define MIN_COURSE_RADIUS_M (0.09f) // R10cm（コースの最小曲率半径 - 確定値）
@@ -28,13 +29,19 @@ static float filtered_angular_velocity = 0.0f;
 
 static uint32_t log_write_address;
 static uint16_t log_count;
-static LogData_t data[4000];
+static LogData_t data[LOG_MAX_ENTRIES];
 uint16_t dc = 0; // extern宣言されているためstaticを削除、型をuint16_tに統一
 extern int lion;
 extern float zg_offset;
+extern bool Start_Flag;
+extern int16_t mon_rev_l;
+extern int16_t mon_rev_r;
 
 // 曲率半径計算用の静的変数
 static float integrated_angle = 0.0f; // 角度積算値[rad]
+static bool prev_start_flag = false;
+static float segment_time_s = 0.0f;
+static float logged_distance_from_start_m = 0.0f;
 
 /**
  * @brief ログ機能を初期化します。
@@ -47,6 +54,9 @@ void Log_Init(void)
 	integrated_angle = 0.0f;
 	filtered_angular_velocity = 0.0f;
 	dc = 0;
+	prev_start_flag = false;
+	segment_time_s = 0.0f;
+	logged_distance_from_start_m = 0.0f;
 }
 
 void Log_Reset(void)
@@ -55,6 +65,9 @@ void Log_Reset(void)
 	integrated_angle = 0.0f;
 	filtered_angular_velocity = 0.0f;
 	dc = 0;
+	prev_start_flag = false;
+	segment_time_s = 0.0f;
+	logged_distance_from_start_m = 0.0f;
 }
 
 /**
@@ -128,6 +141,21 @@ uint16_t Log_GetCount(void)
  */
 void Log_CalculateAndSave(void)
 {
+	if (!Start_Flag)
+	{
+		prev_start_flag = false;
+		return;
+	}
+
+	if (!prev_start_flag && Start_Flag)
+	{
+		integrated_angle = 0.0f;
+		filtered_angular_velocity = 0.0f;
+		segment_time_s = 0.0f;
+		logged_distance_from_start_m = 0.0f;
+		clearDistance();
+	}
+	prev_start_flag = Start_Flag;
 
 	// 1. 生の角速度（オフセット補正後）を計算
 	float raw_angular_velocity_z = ((float)zg - zg_offset) / 16.4f;
@@ -138,11 +166,30 @@ void Log_CalculateAndSave(void)
 
 	// 3. 角度積算には平滑化された値を使用
 	integrated_angle += filtered_angular_velocity * DEG_TO_RAD * 0.001f; // 0.001f は dt(1ms)
+	segment_time_s += 0.001f;
 																		 //	printf("%f\n", getDistance());
 
-	if (getDistance() >= 10.0f / 1000.0f)
+	float segment_distance = getDistance();
+	if (segment_distance >= 10.0f / 1000.0f)
 	{
+		if (dc >= LOG_MAX_ENTRIES)
+		{
+			return;
+		}
+
 		LogData_t new_log;
+		new_log.distance_from_start_m = logged_distance_from_start_m + segment_distance;
+		if (segment_time_s > 0.0f)
+		{
+			new_log.speed_m_s = segment_distance / segment_time_s;
+		}
+		else
+		{
+			new_log.speed_m_s = 0.0f;
+		}
+		new_log.target_speed_m_s = getTarget();
+		new_log.pwm_left = mon_rev_l;
+		new_log.pwm_right = mon_rev_r;
 
 		// 既存のログデータ項目を埋める
 		new_log.left_encoder_count = enc_l_total;  //
@@ -150,7 +197,7 @@ void Log_CalculateAndSave(void)
 
 		if (fabsf(integrated_angle) > 0.001f)
 		{
-			float calculated_radius = getDistance() / integrated_angle;
+			float calculated_radius = segment_distance / integrated_angle;
 			float abs_calculated_radius = fabsf(calculated_radius); // 絶対値を取得
 
 			// ★★★ 修正: 上限フィルタリングの追加 ★★★
@@ -175,10 +222,40 @@ void Log_CalculateAndSave(void)
 		data[dc] = new_log;
 
 		// ログ保存後、距離と角度をリセット
+		logged_distance_from_start_m += segment_distance;
 		clearDistance(); //
 		integrated_angle = 0.0f;
+		segment_time_s = 0.0f;
 		dc++;
 	}
+}
+
+void Log_PrintRunData_To_Serial(void)
+{
+	printf("Run Log (RAM) %u entries:\r\n", dc);
+	if (dc == 0)
+	{
+		printf("No run data in RAM.\r\n");
+		return;
+	}
+
+	for (uint16_t i = 0; i < dc; i++)
+	{
+		printf("Run %u: Dist(m): %.3f, V(m/s): %.3f, Target: %.3f, PWM L/R: %d/%d\r\n",
+			   i,
+			   data[i].distance_from_start_m,
+			   data[i].speed_m_s,
+			   data[i].target_speed_m_s,
+			   data[i].pwm_left,
+			   data[i].pwm_right);
+
+		if ((i + 1) % 10 == 0)
+		{
+			HAL_Delay(50);
+		}
+	}
+
+	printf("\r\n=== Run log output complete ===\r\n");
 }
 
 /**
@@ -198,9 +275,13 @@ void Log_PrintData_To_Serial(void)
 
 	for (uint16_t i = 0; i < dc; i++)
 	{
-		//      Log_ReadData(&log_entry, i); // この行はコメントアウトしたまま
-		printf("Entry %d: Left Enc: %d, Right Enc: %d, Curvature Radius: %.2f\r\n",
-			   i, data[i].left_encoder_count, data[i].right_encoder_count, // log_entryではなくdata[i]を使用
+		printf("Entry %d: Dist: %.3f m, V: %.3f m/s, Target: %.3f m/s, PWM L/R: %d/%d, CurvR: %.2f\r\n",
+			   i,
+			   data[i].distance_from_start_m,
+			   data[i].speed_m_s,
+			   data[i].target_speed_m_s,
+			   data[i].pwm_left,
+			   data[i].pwm_right,
 			   data[i].curvature_radius);
 
 		// 10エントリごとに待機してバッファフラッシュ
