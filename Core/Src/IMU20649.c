@@ -7,6 +7,63 @@
 
 #include "IMU20649.h"
 
+static uint8_t imu_current_bank = 0x00;
+
+static void IMU_SelectBank(uint8_t bank)
+{
+	if (imu_current_bank == bank)
+	{
+		return;
+	}
+
+	uint8_t reg = 0x7F;
+	CS_RESET;
+	HAL_SPI_Transmit(&hspi3, &reg, 1, 100);
+	HAL_SPI_Transmit(&hspi3, &bank, 1, 100);
+	CS_SET;
+	imu_current_bank = bank;
+}
+
+static uint8_t imu_read_byte_bank0(uint8_t reg)
+{
+	uint8_t tx[2] = { (uint8_t)(reg | 0x80), 0x00 };
+	uint8_t rx[2] = { 0 };
+
+	IMU_SelectBank(0x00);
+	CS_RESET;
+	HAL_SPI_TransmitReceive(&hspi3, tx, rx, 2, 100);
+	CS_SET;
+
+	return rx[1];
+}
+
+static void imu_read_bytes_bank0(uint8_t start_reg, uint8_t *dst, uint8_t len)
+{
+	uint8_t tx[16] = {0};
+	uint8_t rx[16] = {0};
+
+	if (len == 0 || len > 15)
+	{
+		return;
+	}
+
+	tx[0] = (uint8_t)(start_reg | 0x80);
+	for (uint8_t i = 1; i <= len; i++)
+	{
+		tx[i] = 0x00;
+	}
+
+	IMU_SelectBank(0x00);
+	CS_RESET;
+	HAL_SPI_TransmitReceive(&hspi3, tx, rx, (uint16_t)(len + 1), 100);
+	CS_SET;
+
+	for (uint8_t i = 0; i < len; i++)
+	{
+		dst[i] = rx[i + 1];
+	}
+}
+
 volatile int16_t xa, ya, za; // 加速度(16bitデータ)
 volatile int16_t xg, yg, zg; // 角加速度(16bitデータ)
 
@@ -14,15 +71,7 @@ float zg_offset = 0.0f;
 
 uint8_t read_byte(uint8_t reg)
 {
-	uint8_t ret, val;
-
-	ret = reg | 0x80;
-	CS_RESET;
-	HAL_SPI_Transmit(&hspi3, &ret, 1, 100);
-	HAL_SPI_Receive(&hspi3, &val, 1, 100);
-	CS_SET;
-
-	return val;
+	return imu_read_byte_bank0(reg);
 }
 
 void IMU_CalibrateGyro(void)
@@ -53,6 +102,11 @@ void write_byte(uint8_t reg, uint8_t val)
 {
 	uint8_t ret;
 
+	if (reg == 0x7F)
+	{
+		imu_current_bank = val;
+	}
+
 	ret = reg & 0x7F;
 	CS_RESET;
 	HAL_SPI_Transmit(&hspi3, &ret, 1, 100);
@@ -72,6 +126,9 @@ uint8_t IMU_Init()
 		return 1;
 	}
 
+	imu_current_bank = 0xFF;
+	IMU_SelectBank(0x00);
+
 	who_am_i = read_byte(0x00); // IMU動作確認　0xE0が送られてくればおｋ
 	printf("IMU WHOAMI: 0x%02X (Expected: 0xE1)\r\n", who_am_i);
 
@@ -89,7 +146,7 @@ uint8_t IMU_Init()
 		// write_byte(0x01,0x07);	//range±2000dps DLPF enable DLPFCFG = 0
 		// write_byte(0x01,0x0F);	//range±2000dps DLPF enable DLPFCFG = 1
 		//		write_byte(0x01,0x17);	//range±2000dps DLPF enable DLPFCFG = 2 ICM20648
-		write_byte(0x01, 0x18); // ICM20649_4000dps
+		write_byte(0x01, 0x06); // range +/-2000 dps, DLPF disable
 
 		// 2:1 GYRO_FS_SEL[1:0] 00:±250	01:±500 10:±1000 11:±2000
 		write_byte(0x14, 0x06); //	レンジ±16g
@@ -106,24 +163,32 @@ uint8_t IMU_Init()
 
 void read_zg_data()
 {
-	zg = ((int16_t)read_byte(0x37) << 8) | ((int16_t)read_byte(0x38));
+	uint8_t raw[2] = {0};
+	imu_read_bytes_bank0(0x37, raw, 2);
+	zg = (int16_t)(((uint16_t)raw[0] << 8) | raw[1]);
 }
 
 void read_gyro_data()
 {
-	xg = ((uint16_t)read_byte(0x33) << 8) | ((uint16_t)read_byte(0x34));
-	yg = ((uint16_t)read_byte(0x35) << 8) | ((uint16_t)read_byte(0x36));
-	zg = ((uint16_t)read_byte(0x37) << 8) | ((uint16_t)read_byte(0x38));
+	uint8_t raw[6] = {0};
+	imu_read_bytes_bank0(0x33, raw, 6);
+	xg = (int16_t)(((uint16_t)raw[0] << 8) | raw[1]);
+	yg = (int16_t)(((uint16_t)raw[2] << 8) | raw[3]);
+	zg = (int16_t)(((uint16_t)raw[4] << 8) | raw[5]);
 }
 
 void read_xa_data()
 {
-	xa = ((int16_t)read_byte(0x2D) << 8) | ((int16_t)read_byte(0x2E));
+	uint8_t raw[2] = {0};
+	imu_read_bytes_bank0(0x2D, raw, 2);
+	xa = (int16_t)(((uint16_t)raw[0] << 8) | raw[1]);
 }
 
 void read_accel_data()
 {
-	xa = ((uint16_t)read_byte(0x2D) << 8) | ((uint16_t)read_byte(0x2E));
-	ya = ((uint16_t)read_byte(0x2F) << 8) | ((uint16_t)read_byte(0x30));
-	za = ((uint16_t)read_byte(0x31) << 8) | ((uint16_t)read_byte(0x32));
+	uint8_t raw[6] = {0};
+	imu_read_bytes_bank0(0x2D, raw, 6);
+	xa = (int16_t)(((uint16_t)raw[0] << 8) | raw[1]);
+	ya = (int16_t)(((uint16_t)raw[2] << 8) | raw[3]);
+	za = (int16_t)(((uint16_t)raw[4] << 8) | raw[5]);
 }

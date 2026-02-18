@@ -14,7 +14,7 @@ typedef struct
     int16_t pwm_right;
     int16_t left_encoder_count;
     int16_t right_encoder_count;
-    float curvature_radius; // 追加：曲率半径
+    float angle_error_rad; // 10mm区間で積算した角度誤差[rad]
 } LogData_t;
 
 // Flashメモリのログ領域設定（STM32F405RGを想定）

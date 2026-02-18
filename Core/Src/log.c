@@ -18,14 +18,10 @@
 #include "TrackingPart.h"
 #include "flash2.h"
 
-#define MIN_COURSE_RADIUS_M (0.09f) // R10cm（コースの最小曲率半径 - 確定値）
-// コースの最大半径が不明なため、実用上の上限を100mに設定。
-// これを超える値は、走行中のノイズによる「ほぼ直線」と見なす。
-#define MAX_PRACTICAL_RADIUS_M (10.0f)
-
 #define ZG_FILTER_ALPHA 0.2037f
 static float filtered_angular_velocity = 0.0f;
 #define DEG_TO_RAD 0.0174532925f // PI / 180
+#define RAD_TO_DEG 57.2957795f   // 180 / PI
 
 static uint32_t log_write_address;
 static uint16_t log_count;
@@ -37,7 +33,7 @@ extern bool Start_Flag;
 extern int16_t mon_rev_l;
 extern int16_t mon_rev_r;
 
-// 曲率半径計算用の静的変数
+// 10mm区間の角度誤差積算用の静的変数
 static float integrated_angle = 0.0f; // 角度積算値[rad]
 static bool prev_start_flag = false;
 static float segment_time_s = 0.0f;
@@ -88,7 +84,7 @@ void Log_SaveData(LogData_t data)
 	log_write_address += sizeof(int32_t);
 	FLASH_Write_Word_S(log_write_address, data.right_encoder_count);
 	log_write_address += sizeof(int32_t);
-	FLASH_Write_Word_F(log_write_address, data.curvature_radius);
+	FLASH_Write_Word_F(log_write_address, data.angle_error_rad);
 	log_write_address += sizeof(float);
 
 	// ログエントリ数を更新
@@ -136,7 +132,7 @@ uint16_t Log_GetCount(void)
 }
 
 /**
- * @brief IMUの角速度と走行距離から曲率半径を計算し、Flashメモリに保存します。
+ * @brief IMUの角速度と走行距離から10mm区間の角度誤差を算出し、RAMログに保存します。
  * この関数は、1msごとに呼び出されることを想定しています。
  */
 void Log_CalculateAndSave(void)
@@ -158,7 +154,7 @@ void Log_CalculateAndSave(void)
 	prev_start_flag = Start_Flag;
 
 	// 1. 生の角速度（オフセット補正後）を計算
-	float raw_angular_velocity_z = ((float)zg - zg_offset) / 16.4f;
+	float raw_angular_velocity_z = ((float)zg - zg_offset) / GYRO_SENS_LSB_PER_DPS;
 
 	// 2. IIRフィルタを適用してノイズ除去（filtered_angular_velocityを更新）
 	// filtered_angular_velocity = (1 - α) * pre_filtered_value + α * raw_value
@@ -195,28 +191,7 @@ void Log_CalculateAndSave(void)
 		new_log.left_encoder_count = enc_l_total;  //
 		new_log.right_encoder_count = enc_r_total; //
 
-		if (fabsf(integrated_angle) > 0.001f)
-		{
-			float calculated_radius = segment_distance / integrated_angle;
-			float abs_calculated_radius = fabsf(calculated_radius); // 絶対値を取得
-
-			// ★★★ 修正: 上限フィルタリングの追加 ★★★
-			// |R| < 0.09m（最小半径未満） OR |R| > 10.0m（実用最大半径超）の場合、直線(0.0f)として記録
-			if (abs_calculated_radius < MIN_COURSE_RADIUS_M || abs_calculated_radius > MAX_PRACTICAL_RADIUS_M)
-			{
-				new_log.curvature_radius = 0.0f; // ノイズ/実質的な直線
-			}
-			else
-			{
-				// 0.09m <= |R| <= 10.0m の有効なカーブ
-				new_log.curvature_radius = calculated_radius;
-			}
-			// ★★★ 修正はここまで ★★★
-		}
-		else
-		{
-			new_log.curvature_radius = 0.0f; // integrated_angle が極小（厳密な直線）
-		}
+		new_log.angle_error_rad = integrated_angle;
 
 		//        Log_SaveData(new_log);
 		data[dc] = new_log;
@@ -241,13 +216,14 @@ void Log_PrintRunData_To_Serial(void)
 
 	for (uint16_t i = 0; i < dc; i++)
 	{
-		printf("Run %u: Dist(m): %.3f, V(m/s): %.3f, Target: %.3f, PWM L/R: %d/%d\r\n",
+		printf("Run %u: Dist(m): %.3f, V(m/s): %.3f, Target: %.3f, PWM L/R: %d/%d, AngleErr(deg): %.3f\r\n",
 			   i,
 			   data[i].distance_from_start_m,
 			   data[i].speed_m_s,
 			   data[i].target_speed_m_s,
 			   data[i].pwm_left,
-			   data[i].pwm_right);
+			   data[i].pwm_right,
+			   data[i].angle_error_rad * RAD_TO_DEG);
 
 		if ((i + 1) % 10 == 0)
 		{
@@ -275,14 +251,14 @@ void Log_PrintData_To_Serial(void)
 
 	for (uint16_t i = 0; i < dc; i++)
 	{
-		printf("Entry %d: Dist: %.3f m, V: %.3f m/s, Target: %.3f m/s, PWM L/R: %d/%d, CurvR: %.2f\r\n",
+		printf("Entry %d: Dist: %.3f m, V: %.3f m/s, Target: %.3f m/s, PWM L/R: %d/%d, AngleErr(deg): %.2f\r\n",
 			   i,
 			   data[i].distance_from_start_m,
 			   data[i].speed_m_s,
 			   data[i].target_speed_m_s,
 			   data[i].pwm_left,
 			   data[i].pwm_right,
-			   data[i].curvature_radius);
+			   data[i].angle_error_rad * RAD_TO_DEG);
 
 		// 10エントリごとに待機してバッファフラッシュ
 		if ((i + 1) % 10 == 0)

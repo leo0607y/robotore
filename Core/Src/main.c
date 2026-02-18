@@ -78,6 +78,7 @@ bool watchdog_reset_detected = false; // Watchdogリセット検出フラグ
 int16_t gx, gy, gz;
 uint16_t cnt, cnt2 = 0;
 uint16_t sw, sw2 = 0;
+static uint32_t imu_test_last_print_ms = 0;
 
 extern bool Start_Flag;
 extern bool Stop_Flag;
@@ -110,6 +111,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 		Encoder_Update();
 		Sensor_Update();
+		read_gyro_data();  // グローバル変数 xg, yg, zg を更新
+		read_accel_data(); // グローバル変数 xa, ya, za を更新
 
 		ControlLineTracking();
 		TraceFlip();
@@ -121,8 +124,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		}
 
 		//		updateSideSensorStatus();
-		read_gyro_data();  // グローバル変数 xg, yg, zg を更新
-		read_accel_data(); // グローバル変数 xa, ya, za を更新
 						   //		S_Sensor();
 	}
 	if (htim->Instance == TIM7)
@@ -369,8 +370,26 @@ int main(void)
 		switch (bayado)
 		{
 		case 0:
-			//			Log_Erase();
-			//			bayado = -1;
+			if ((timer - imu_test_last_print_ms) >= 100)
+			{
+				imu_test_last_print_ms = timer;
+
+				float gx_dps_raw = (float)xg / GYRO_SENS_LSB_PER_DPS;
+				float gy_dps_raw = (float)yg / GYRO_SENS_LSB_PER_DPS;
+				float gz_dps_raw = (float)zg / GYRO_SENS_LSB_PER_DPS;
+				float gz_dps_corr = ((float)zg - zg_offset) / GYRO_SENS_LSB_PER_DPS;
+
+				float ax_g = (float)xa / ACCEL_SENS_LSB_PER_G;
+				float ay_g = (float)ya / ACCEL_SENS_LSB_PER_G;
+				float az_g = (float)za / ACCEL_SENS_LSB_PER_G;
+				float acc_norm_g = sqrtf(ax_g * ax_g + ay_g * ay_g + az_g * az_g);
+
+				printf("IMU RAW  GYRO[LSB] X:%d Y:%d Z:%d | ACC[LSB] X:%d Y:%d Z:%d\r\n",
+					   xg, yg, zg, xa, ya, za);
+				printf("IMU CORR GYRO[dps] X:%.3f Y:%.3f Zraw:%.3f Zcorr:%.3f(off=%.3f) | ACC[g] X:%.3f Y:%.3f Z:%.3f | |a|:%.3f\r\n",
+					   gx_dps_raw, gy_dps_raw, gz_dps_raw, gz_dps_corr, zg_offset,
+					   ax_g, ay_g, az_g, acc_norm_g);
+			}
 			break;
 		case 1:
 			Log_PrintRunData_To_Serial();
