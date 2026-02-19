@@ -250,10 +250,17 @@ void Log_PrintRunData_To_Serial(void)
 
 	for (uint16_t i = 0; i < compact_dc; i++)
 	{
+<<<<<<< HEAD
 		printf("Run %u: Dist(m): %.3f, AngleErr(rad): %.9f\r\n",
 			   i,
 			   compact_data[i].distance_from_start_m,
 			   compact_data[i].angle_error_rad);
+=======
+		printf("Run %u: Dist(m): %.3f, AngleErr(rad): %.6f\r\n",
+			   i,
+			   data[i].distance_from_start_m,
+			   data[i].angle_error_rad);
+>>>>>>> 0954dc8 (Refine IMU/log pipeline and add course outline export tools)
 
 		if ((i + 1) % 10 == 0)
 		{
@@ -272,17 +279,28 @@ void Log_PrintData_To_Serial(void)
 {
 	loadFlash(start_adress_sector11, (uint8_t *)compact_data, sizeof(CompactLogData_t) * compact_dc);
 
+<<<<<<< HEAD
 	printf("Flash Compact Log Data (%d entries):\r\n", compact_dc);
 	printf("Starting data output...\r\n");
 	printf("This will take approximately %d seconds...\r\n", (compact_dc / 10) * 50 / 1000);
 	printf("Note: Watchdog is disabled during data output.\r\n");
+=======
+	printf("Flash Log Data (%d entries):\r\n", dc);
+>>>>>>> 0954dc8 (Refine IMU/log pipeline and add course outline export tools)
 
 	for (uint16_t i = 0; i < compact_dc; i++)
 	{
+<<<<<<< HEAD
 		printf("Entry %d: Dist: %.3f m, AngleErr(rad): %.9f\r\n",
 			   i,
 			   compact_data[i].distance_from_start_m,
 			   compact_data[i].angle_error_rad);
+=======
+		printf("Entry %d: Dist: %.3f m, AngleErr(rad): %.6f\r\n",
+			   i,
+			   data[i].distance_from_start_m,
+			   data[i].angle_error_rad);
+>>>>>>> 0954dc8 (Refine IMU/log pipeline and add course outline export tools)
 
 		// 10エントリごとに待機してバッファフラッシュ
 		if ((i + 1) % 10 == 0)
@@ -290,11 +308,14 @@ void Log_PrintData_To_Serial(void)
 			HAL_Delay(50); // UARTバッファフラッシュ用
 		}
 
+<<<<<<< HEAD
 		// 進捗表示（50エントリごと）
 		if ((i + 1) % 50 == 0)
 		{
 			printf("--- Progress: %d/%d entries ---\r\n", i + 1, compact_dc);
 		}
+=======
+>>>>>>> 0954dc8 (Refine IMU/log pipeline and add course outline export tools)
 	}
 
 	printf("\r\n=== All %d entries output complete ===\r\n", compact_dc);

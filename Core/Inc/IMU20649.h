@@ -21,7 +21,11 @@ extern float imu_gyro_lsb_per_dps_runtime;
 extern float imu_accel_lsb_per_g_runtime;
 void IMU_CalibrateGyro(void); // ジャイロキャリブレーション関数のプロトタイプ宣言
 
+<<<<<<< HEAD
 // Gyro sensitivity (current setting)
+=======
+// Gyro sensitivity for +/-2000 dps range
+>>>>>>> 0954dc8 (Refine IMU/log pipeline and add course outline export tools)
 #define GYRO_SENS_LSB_PER_DPS 8.2f
 
 // Accel sensitivity for current ACCEL_CONFIG (0x14 = 0x06)
@@ -44,7 +48,7 @@ Gyro		レンジ(dps)	スケールファクター(LSB/dps)　dps = 生/スケー�
 					±250				131
 					±500				65.5
 					±1000				32.8
-					±2000				16.4
+					±2000				8.2
 Accel		レンジ(g)		スケールファクター(LSB/g)
 					±2					16384
 					±4					8192
