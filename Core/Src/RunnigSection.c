@@ -7,6 +7,10 @@
 // static int16_t acceleration_table[5000];
 
 #define own_ms_CP 180 // 1m/sに必要なCpunterPeriod
+#define CROSS_CENTER_SENSOR_START 2
+#define CROSS_CENTER_SENSOR_END 9
+#define CROSS_CENTER_SENSOR_THRESHOLD 500
+#define CROSS_GUARD_TIME_MS 300U
 
 uint16_t velocity_table_idx;
 uint16_t mode;
@@ -24,11 +28,13 @@ extern int lion, bayado;
 // S_Sensorの静的変数（グローバルスコープに移動してリセット可能にする）
 static bool prev_side_sensor_r_global = false;
 static uint32_t start_passed_time_global = 0;
+static uint32_t cross_ignore_until_ms = 0;
 
 void Reset_S_Sensor_State(void)
 {
 	prev_side_sensor_r_global = false;
 	start_passed_time_global = 0;
+	cross_ignore_until_ms = 0;
 }
 
 void Fan_Ctrl(void)
@@ -65,6 +71,33 @@ void S_Sensor()
 	{
 		bool rising_edge_r = (!prev_side_sensor_r_global && side_sensor_r);
 		uint32_t current_time = HAL_GetTick();
+
+		// 中心8センサが同時にライン上（低値）を検出したらクロスと判定し、一定時間ゴール判定を無視
+		bool center8_all_on_line = true;
+		for (int i = CROSS_CENTER_SENSOR_START; i <= CROSS_CENTER_SENSOR_END; i++)
+		{
+			if (sensor[i] > CROSS_CENTER_SENSOR_THRESHOLD)
+			{
+				center8_all_on_line = false;
+				break;
+			}
+		}
+
+		if (center8_all_on_line)
+		{
+			cross_ignore_until_ms = current_time + CROSS_GUARD_TIME_MS;
+			if (Marker_State == 2)
+			{
+				Marker_State = 1; // ゴール候補中でもクロス優先でキャンセル
+			}
+		}
+
+		bool cross_guard_active = (current_time < cross_ignore_until_ms);
+		if (cross_guard_active)
+		{
+			prev_side_sensor_r_global = side_sensor_r;
+			return;
+		}
 
 		if (Marker_State == 1 && rising_edge_r && (current_time - start_passed_time_global) > 1000)
 		{
