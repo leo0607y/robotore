@@ -79,6 +79,10 @@ int16_t gx, gy, gz;
 uint16_t cnt, cnt2 = 0;
 uint16_t sw, sw2 = 0;
 static uint32_t imu_test_last_print_ms = 0;
+static float imu_test_yaw_deg_runtime = 0.0f;
+static float imu_test_yaw_deg_16p4 = 0.0f;
+static float imu_test_yaw_deg_8p2 = 0.0f;
+static int imu_test_prev_mode = -999;
 
 extern bool Start_Flag;
 extern bool Stop_Flag;
@@ -113,6 +117,18 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		Sensor_Update();
 		read_gyro_data();  // グローバル変数 xg, yg, zg を更新
 		read_accel_data(); // グローバル変数 xa, ya, za を更新
+
+		if (bayado == 0)
+		{
+			float gyro_lsb_per_dps = IMU_GetGyroLsbPerDps();
+			float gz_dps_corr_runtime = ((float)zg - zg_offset) / gyro_lsb_per_dps;
+			float gz_dps_corr_16p4 = ((float)zg - zg_offset) / 16.4f;
+			float gz_dps_corr_8p2 = ((float)zg - zg_offset) / 8.2f;
+
+			imu_test_yaw_deg_runtime += gz_dps_corr_runtime * 0.001f;
+			imu_test_yaw_deg_16p4 += gz_dps_corr_16p4 * 0.001f;
+			imu_test_yaw_deg_8p2 += gz_dps_corr_8p2 * 0.001f;
+		}
 
 		ControlLineTracking();
 		TraceFlip();
@@ -336,6 +352,19 @@ int main(void)
 			sw = 0;
 		}
 
+		if (bayado != imu_test_prev_mode)
+		{
+			if (bayado == 0)
+			{
+				imu_test_yaw_deg_runtime = 0.0f;
+				imu_test_yaw_deg_16p4 = 0.0f;
+				imu_test_yaw_deg_8p2 = 0.0f;
+				imu_test_last_print_ms = timer;
+				printf("[IMU TEST] cumulative yaw reset. rotate slowly and read yaw_int[deg].\r\n");
+			}
+			imu_test_prev_mode = bayado;
+		}
+
 		switch (lion)
 		{
 		case 0:
@@ -374,14 +403,19 @@ int main(void)
 			{
 				imu_test_last_print_ms = timer;
 
-				float gx_dps_raw = (float)xg / GYRO_SENS_LSB_PER_DPS;
-				float gy_dps_raw = (float)yg / GYRO_SENS_LSB_PER_DPS;
-				float gz_dps_raw = (float)zg / GYRO_SENS_LSB_PER_DPS;
-				float gz_dps_corr = ((float)zg - zg_offset) / GYRO_SENS_LSB_PER_DPS;
+				float gyro_lsb_per_dps = IMU_GetGyroLsbPerDps();
+				float accel_lsb_per_g = IMU_GetAccelLsbPerG();
 
-				float ax_g = (float)xa / ACCEL_SENS_LSB_PER_G;
-				float ay_g = (float)ya / ACCEL_SENS_LSB_PER_G;
-				float az_g = (float)za / ACCEL_SENS_LSB_PER_G;
+				float gx_dps_raw = (float)xg / gyro_lsb_per_dps;
+				float gy_dps_raw = (float)yg / gyro_lsb_per_dps;
+				float gz_dps_raw = (float)zg / gyro_lsb_per_dps;
+				float gz_dps_corr = ((float)zg - zg_offset) / gyro_lsb_per_dps;
+				float gz_dps_corr_16p4 = ((float)zg - zg_offset) / 16.4f;
+				float gz_dps_corr_8p2 = ((float)zg - zg_offset) / 8.2f;
+
+				float ax_g = (float)xa / accel_lsb_per_g;
+				float ay_g = (float)ya / accel_lsb_per_g;
+				float az_g = (float)za / accel_lsb_per_g;
 				float acc_norm_g = sqrtf(ax_g * ax_g + ay_g * ay_g + az_g * az_g);
 
 				printf("IMU RAW  GYRO[LSB] X:%d Y:%d Z:%d | ACC[LSB] X:%d Y:%d Z:%d\r\n",
@@ -389,6 +423,9 @@ int main(void)
 				printf("IMU CORR GYRO[dps] X:%.3f Y:%.3f Zraw:%.3f Zcorr:%.3f(off=%.3f) | ACC[g] X:%.3f Y:%.3f Z:%.3f | |a|:%.3f\r\n",
 					   gx_dps_raw, gy_dps_raw, gz_dps_raw, gz_dps_corr, zg_offset,
 					   ax_g, ay_g, az_g, acc_norm_g);
+				printf("IMU DPS CHECK runtime(LSB/dps=%.3f):%.3f | as16.4:%.3f | as8.2:%.3f | yaw_int[deg] runtime:%.2f as16.4:%.2f as8.2:%.2f\r\n",
+					   gyro_lsb_per_dps, gz_dps_corr, gz_dps_corr_16p4, gz_dps_corr_8p2,
+					   imu_test_yaw_deg_runtime, imu_test_yaw_deg_16p4, imu_test_yaw_deg_8p2);
 			}
 			break;
 		case 1:

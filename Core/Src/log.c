@@ -18,26 +18,38 @@
 #include "TrackingPart.h"
 #include "flash2.h"
 
-#define ZG_FILTER_ALPHA 0.2037f
+#define ZG_FILTER_ALPHA 0.28f
 static float filtered_angular_velocity = 0.0f;
 #define DEG_TO_RAD 0.0174532925f // PI / 180
-#define RAD_TO_DEG 57.2957795f   // 180 / PI
+
+// 角度再構成チューニング（急ぎ改善用）
+#define YAW_DEADBAND_DPS 0.05f
+#define YAW_GAIN_MIN 4.20f
+#define YAW_GAIN_MAX 6.20f
+#define YAW_GAIN_RATE_MIN_DPS 8.0f
+#define YAW_GAIN_RATE_MAX_DPS 65.0f
+#define YAW_SPIKE_CLAMP_DPS 120.0f
+// #define YAW_BIAS_UPDATE_THRESHOLD_DPS 3.0f
+// #define YAW_BIAS_ADAPT_ALPHA 0.005f
 
 static uint32_t log_write_address;
 static uint16_t log_count;
-static LogData_t data[LOG_MAX_ENTRIES];
+// static LogData_t data[LOG_MAX_ENTRIES]; // 既存詳細ログは一旦停止（軽量ログのみ運用）
+static CompactLogData_t compact_data[LOG_MAX_ENTRIES];
 uint16_t dc = 0; // extern宣言されているためstaticを削除、型をuint16_tに統一
+uint16_t compact_dc = 0;
 extern int lion;
 extern float zg_offset;
 extern bool Start_Flag;
-extern int16_t mon_rev_l;
-extern int16_t mon_rev_r;
+// extern int16_t mon_rev_l; // 既存詳細ログ停止により未使用
+// extern int16_t mon_rev_r; // 既存詳細ログ停止により未使用
 
 // 10mm区間の角度誤差積算用の静的変数
 static float integrated_angle = 0.0f; // 角度積算値[rad]
 static bool prev_start_flag = false;
 static float segment_time_s = 0.0f;
 static float logged_distance_from_start_m = 0.0f;
+// static float yaw_residual_bias_dps = 0.0f; // 一旦停止（過補正で角度が消えるため）
 
 /**
  * @brief ログ機能を初期化します。
@@ -53,6 +65,9 @@ void Log_Init(void)
 	prev_start_flag = false;
 	segment_time_s = 0.0f;
 	logged_distance_from_start_m = 0.0f;
+	compact_dc = 0;
+	dc = 0;
+	// yaw_residual_bias_dps = 0.0f;
 }
 
 void Log_Reset(void)
@@ -64,6 +79,9 @@ void Log_Reset(void)
 	prev_start_flag = false;
 	segment_time_s = 0.0f;
 	logged_distance_from_start_m = 0.0f;
+	compact_dc = 0;
+	dc = 0;
+	// yaw_residual_bias_dps = 0.0f;
 }
 
 /**
@@ -149,81 +167,93 @@ void Log_CalculateAndSave(void)
 		filtered_angular_velocity = 0.0f;
 		segment_time_s = 0.0f;
 		logged_distance_from_start_m = 0.0f;
+		// yaw_residual_bias_dps = 0.0f;
 		clearDistance();
 	}
 	prev_start_flag = Start_Flag;
 
 	// 1. 生の角速度（オフセット補正後）を計算
-	float raw_angular_velocity_z = ((float)zg - zg_offset) / GYRO_SENS_LSB_PER_DPS;
+	float gyro_lsb_per_dps = IMU_GetGyroLsbPerDps();
+	float raw_angular_velocity_z = ((float)zg - zg_offset) / gyro_lsb_per_dps;
+	if (raw_angular_velocity_z > YAW_SPIKE_CLAMP_DPS)
+	{
+		raw_angular_velocity_z = YAW_SPIKE_CLAMP_DPS;
+	}
+	else if (raw_angular_velocity_z < -YAW_SPIKE_CLAMP_DPS)
+	{
+		raw_angular_velocity_z = -YAW_SPIKE_CLAMP_DPS;
+	}
+
+	// 残留バイアスの自動追従は一旦停止（旋回成分まで相殺されるため）
+	if (fabsf(raw_angular_velocity_z) < YAW_DEADBAND_DPS)
+	{
+		raw_angular_velocity_z = 0.0f;
+	}
 
 	// 2. IIRフィルタを適用してノイズ除去（filtered_angular_velocityを更新）
 	// filtered_angular_velocity = (1 - α) * pre_filtered_value + α * raw_value
 	filtered_angular_velocity = (1.0f - ZG_FILTER_ALPHA) * filtered_angular_velocity + ZG_FILTER_ALPHA * raw_angular_velocity_z;
 
-	// 3. 角度積算には平滑化された値を使用
-	integrated_angle += filtered_angular_velocity * DEG_TO_RAD * 0.001f; // 0.001f は dt(1ms)
+	// 3. 角速度の大きさに応じて積分ゲインを可変化
+	float abs_rate_dps = fabsf(filtered_angular_velocity);
+	float integration_gain = YAW_GAIN_MAX;
+	if (abs_rate_dps >= YAW_GAIN_RATE_MAX_DPS)
+	{
+		integration_gain = YAW_GAIN_MIN;
+	}
+	else if (abs_rate_dps > YAW_GAIN_RATE_MIN_DPS)
+	{
+		float ratio = (abs_rate_dps - YAW_GAIN_RATE_MIN_DPS) / (YAW_GAIN_RATE_MAX_DPS - YAW_GAIN_RATE_MIN_DPS);
+		integration_gain = YAW_GAIN_MAX + (YAW_GAIN_MIN - YAW_GAIN_MAX) * ratio;
+	}
+
+	if (!is_on_tracking_curve)
+	{
+		integration_gain *= 1.00f;
+	}
+
+	integrated_angle += filtered_angular_velocity * integration_gain * DEG_TO_RAD * 0.001f; // 0.001f は dt(1ms)
 	segment_time_s += 0.001f;
 																		 //	printf("%f\n", getDistance());
 
 	float segment_distance = getDistance();
 	if (segment_distance >= 10.0f / 1000.0f)
 	{
-		if (dc >= LOG_MAX_ENTRIES)
+		if (compact_dc >= LOG_MAX_ENTRIES)
 		{
 			return;
 		}
 
-		LogData_t new_log;
-		new_log.distance_from_start_m = logged_distance_from_start_m + segment_distance;
-		if (segment_time_s > 0.0f)
-		{
-			new_log.speed_m_s = segment_distance / segment_time_s;
-		}
-		else
-		{
-			new_log.speed_m_s = 0.0f;
-		}
-		new_log.target_speed_m_s = getTarget();
-		new_log.pwm_left = mon_rev_l;
-		new_log.pwm_right = mon_rev_r;
-
-		// 既存のログデータ項目を埋める
-		new_log.left_encoder_count = enc_l_total;  //
-		new_log.right_encoder_count = enc_r_total; //
-
-		new_log.angle_error_rad = integrated_angle;
-
-		//        Log_SaveData(new_log);
-		data[dc] = new_log;
+		CompactLogData_t new_compact_log;
+		new_compact_log.distance_from_start_m = logged_distance_from_start_m + segment_distance;
+		new_compact_log.angle_error_rad = integrated_angle;
+		compact_data[compact_dc] = new_compact_log;
+		compact_dc++;
+		dc = compact_dc; // 互換用カウンタ（既存参照向け）
 
 		// ログ保存後、距離と角度をリセット
 		logged_distance_from_start_m += segment_distance;
 		clearDistance(); //
 		integrated_angle = 0.0f;
 		segment_time_s = 0.0f;
-		dc++;
 	}
 }
 
 void Log_PrintRunData_To_Serial(void)
 {
-	printf("Run Log (RAM) %u entries:\r\n", dc);
-	if (dc == 0)
+	printf("Run Compact Log (RAM) %u entries:\r\n", compact_dc);
+	if (compact_dc == 0)
 	{
 		printf("No run data in RAM.\r\n");
 		return;
 	}
 
-	for (uint16_t i = 0; i < dc; i++)
+	for (uint16_t i = 0; i < compact_dc; i++)
 	{
-		printf("Run %u: Dist(m): %.3f, V(m/s): %.3f, Target: %.3f, PWM L/R: %d/%d, AngleErr(deg): %.3f\r\n",
+		printf("Run %u: Dist(m): %.3f, AngleErr(rad): %.9f\r\n",
 			   i,
-			   data[i].distance_from_start_m,
-			   data[i].speed_m_s,
-			   data[i].target_speed_m_s,
-			   data[i].pwm_left,
-			   data[i].pwm_right,
-			   data[i].angle_error_rad * RAD_TO_DEG);
+			   compact_data[i].distance_from_start_m,
+			   compact_data[i].angle_error_rad);
 
 		if ((i + 1) % 10 == 0)
 		{
@@ -231,7 +261,7 @@ void Log_PrintRunData_To_Serial(void)
 		}
 	}
 
-	printf("\r\n=== Run log output complete ===\r\n");
+	printf("\r\n=== Run compact log output complete ===\r\n");
 }
 
 /**
@@ -240,25 +270,19 @@ void Log_PrintRunData_To_Serial(void)
  */
 void Log_PrintData_To_Serial(void)
 {
-	//    LogData_t log_entry;
-	// Flashデータを一度だけ読み込む（ループの外）
-	loadFlash(start_adress_sector11, (uint8_t *)data, sizeof(LogData_t) * dc);
+	loadFlash(start_adress_sector11, (uint8_t *)compact_data, sizeof(CompactLogData_t) * compact_dc);
 
-	printf("Flash Log Data (%d entries):\r\n", dc);
+	printf("Flash Compact Log Data (%d entries):\r\n", compact_dc);
 	printf("Starting data output...\r\n");
-	printf("This will take approximately %d seconds...\r\n", (dc / 10) * 50 / 1000);
+	printf("This will take approximately %d seconds...\r\n", (compact_dc / 10) * 50 / 1000);
 	printf("Note: Watchdog is disabled during data output.\r\n");
 
-	for (uint16_t i = 0; i < dc; i++)
+	for (uint16_t i = 0; i < compact_dc; i++)
 	{
-		printf("Entry %d: Dist: %.3f m, V: %.3f m/s, Target: %.3f m/s, PWM L/R: %d/%d, AngleErr(deg): %.2f\r\n",
+		printf("Entry %d: Dist: %.3f m, AngleErr(rad): %.9f\r\n",
 			   i,
-			   data[i].distance_from_start_m,
-			   data[i].speed_m_s,
-			   data[i].target_speed_m_s,
-			   data[i].pwm_left,
-			   data[i].pwm_right,
-			   data[i].angle_error_rad * RAD_TO_DEG);
+			   compact_data[i].distance_from_start_m,
+			   compact_data[i].angle_error_rad);
 
 		// 10エントリごとに待機してバッファフラッシュ
 		if ((i + 1) % 10 == 0)
@@ -269,11 +293,11 @@ void Log_PrintData_To_Serial(void)
 		// 進捗表示（50エントリごと）
 		if ((i + 1) % 50 == 0)
 		{
-			printf("--- Progress: %d/%d entries ---\r\n", i + 1, dc);
+			printf("--- Progress: %d/%d entries ---\r\n", i + 1, compact_dc);
 		}
 	}
 
-	printf("\r\n=== All %d entries output complete ===\r\n", dc);
+	printf("\r\n=== All %d entries output complete ===\r\n", compact_dc);
 	printf("No auto-reset will occur.\r\n");
 	//	printf("Flash Log Data (%d entries):\r\n", dc);
 	//	for (int abc = 0; abc < dc; abc++) {
@@ -296,8 +320,8 @@ void WriteData()
 	//				sizeof(LogData_t) * 1000);
 	//		printf("%d\n", abc);
 	//	}
-	eraseFlash();																// セクター11を消去
-	writeFlash(start_adress_sector11, (uint8_t *)data, sizeof(LogData_t) * dc); // dc個のデータを書き込み
+	eraseFlash(); // セクター11を消去
+	writeFlash(start_adress_sector11, (uint8_t *)compact_data, sizeof(CompactLogData_t) * compact_dc);
 	printf("OK\n");
 	// lion = 7; // リセット防止のためコメントアウト
 }

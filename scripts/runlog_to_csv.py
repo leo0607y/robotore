@@ -3,13 +3,16 @@ import argparse
 import csv
 import math
 import re
-from datetime import datetime
 from pathlib import Path
 
 try:
     import serial
 except ImportError:
     serial = None
+
+DEFAULT_OUTPUT_DIR = Path(r"C:\Users\reoch\reRo\Aslan")
+DEFAULT_CSV_NAME = "runlog_auto.csv"
+DEFAULT_MATLAB_NAME = "Distance, Theta.txt"
 
 RUN_RE = re.compile(
     r"(?:Run|Entry)\s+(?P<index>\d+):\s*"
@@ -22,7 +25,14 @@ RUN_RE = re.compile(
     r"(?:CurvR\(m\):\s*(?P<radius_old>-?\d+(?:\.\d+)?)))"
 )
 
-DONE_RE = re.compile(r"===\s*(?:All\s+\d+\s+entries\s+output\s+complete|Run\s+log\s+output\s+complete)\s*===")
+COMPACT_RE = re.compile(
+    r"(?:Run|Entry)\s+(?P<index>\d+):\s*"
+    r"Dist(?:\(m\))?:\s*(?P<dist>-?\d+(?:\.\d+)?)\s*(?:m)?\s*,\s*"
+    r"(?:AngleErr\(deg\):\s*(?P<angle_deg>-?\d+(?:\.\d+)?)|"
+    r"AngleErr\(rad\):\s*(?P<angle_rad>-?\d+(?:\.\d+)?))"
+)
+
+DONE_RE = re.compile(r"===\s*(?:All\s+\d+\s+entries\s+output\s+complete|Run\s+log\s+output\s+complete|Run\s+compact\s+log\s+output\s+complete)\s*===")
 
 
 def parse_lines(lines):
@@ -31,21 +41,38 @@ def parse_lines(lines):
 
     for line in lines:
         match = RUN_RE.search(line)
+        compact_match = None
         if not match:
-            continue
+            compact_match = COMPACT_RE.search(line)
+            if not compact_match:
+                continue
 
-        index = int(match.group("index"))
-        dist_m = float(match.group("dist"))
-        speed_m_s = float(match.group("speed"))
-        target_m_s = float(match.group("target"))
-        pwm_l = int(match.group("pwm_l"))
-        pwm_r = int(match.group("pwm_r"))
+        if match:
+            index = int(match.group("index"))
+            dist_m = float(match.group("dist"))
+            speed_m_s = float(match.group("speed"))
+            target_m_s = float(match.group("target"))
+            pwm_l = int(match.group("pwm_l"))
+            pwm_r = int(match.group("pwm_r"))
+        else:
+            index = int(compact_match.group("index"))
+            dist_m = float(compact_match.group("dist"))
+            speed_m_s = 0.0
+            target_m_s = 0.0
+            pwm_l = 0
+            pwm_r = 0
 
-        if match.group("angle_deg") is not None:
+        if match and match.group("angle_deg") is not None:
             angle_err_deg = float(match.group("angle_deg"))
             angle_err_rad = math.radians(angle_err_deg)
-        elif match.group("angle_rad") is not None:
+        elif match and match.group("angle_rad") is not None:
             angle_err_rad = float(match.group("angle_rad"))
+            angle_err_deg = math.degrees(angle_err_rad)
+        elif compact_match and compact_match.group("angle_deg") is not None:
+            angle_err_deg = float(compact_match.group("angle_deg"))
+            angle_err_rad = math.radians(angle_err_deg)
+        elif compact_match and compact_match.group("angle_rad") is not None:
+            angle_err_rad = float(compact_match.group("angle_rad"))
             angle_err_deg = math.degrees(angle_err_rad)
         else:
             angle_err_deg = 0.0
@@ -57,7 +84,7 @@ def parse_lines(lines):
             segment_dist_m = dist_m - prev_dist
         prev_dist = dist_m
 
-        radius_old = match.group("radius_old")
+        radius_old = match.group("radius_old") if match else None
         if radius_old is not None:
             radius_m = float(radius_old)
         else:
@@ -84,6 +111,32 @@ def parse_lines(lines):
     return rows
 
 
+def append_trajectory(rows, straight_radius=1000.0):
+    x_m = 0.0
+    y_m = 0.0
+    heading_rad = 0.0
+
+    for row in rows:
+        distance = row["segment_dist_m"]
+        theta = row["angle_err_rad"]
+
+        x_m += distance * math.cos(heading_rad + theta / 2.0)
+        y_m += distance * math.sin(heading_rad + theta / 2.0)
+        heading_rad += theta
+
+        if abs(theta) < 1e-9:
+            radius_for_speed_plan_m = straight_radius
+        else:
+            radius_for_speed_plan_m = abs(distance / theta)
+            if radius_for_speed_plan_m >= straight_radius:
+                radius_for_speed_plan_m = straight_radius
+
+        row["x_m"] = x_m
+        row["y_m"] = y_m
+        row["heading_rad"] = heading_rad
+        row["radius_for_speed_plan_m"] = radius_for_speed_plan_m
+
+
 def write_csv(out_path: Path, rows):
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", newline="", encoding="utf-8") as file_obj:
@@ -100,10 +153,23 @@ def write_csv(out_path: Path, rows):
                 "angle_err_deg",
                 "angle_err_rad",
                 "radius_m",
+                "x_m",
+                "y_m",
+                "heading_rad",
+                "radius_for_speed_plan_m",
             ],
         )
         writer.writeheader()
         writer.writerows(rows)
+
+
+def write_matlab_distance_theta(out_path: Path, rows):
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with out_path.open("w", encoding="utf-8") as file_obj:
+        for row in rows:
+            distance = row["segment_dist_m"]
+            theta = row["angle_err_rad"]
+            file_obj.write(f"{distance:.9f} {theta:.9f}\n")
 
 
 def read_lines_from_serial(port: str, baudrate: int, timeout_s: float):
@@ -144,6 +210,11 @@ def main():
     parser.add_argument("--baud", type=int, default=115200, help="Serial baud rate")
     parser.add_argument("--timeout", type=float, default=0.2, help="Serial read timeout seconds")
     parser.add_argument("--save-raw", default=None, help="Optional path to save captured serial text")
+    parser.add_argument(
+        "--matlab-output",
+        default=None,
+        help="Optional MATLAB text output path (default: same folder as CSV, file name 'Distance, Theta.txt')",
+    )
     args = parser.parse_args()
 
     if not args.input and not args.serial:
@@ -152,8 +223,12 @@ def main():
     if args.output:
         out_path = Path(args.output)
     else:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        out_path = Path("scripts") / f"runlog_{timestamp}.csv"
+        out_path = DEFAULT_OUTPUT_DIR / DEFAULT_CSV_NAME
+
+    if args.matlab_output:
+        matlab_out_path = Path(args.matlab_output)
+    else:
+        matlab_out_path = DEFAULT_OUTPUT_DIR / DEFAULT_MATLAB_NAME
 
     if args.input:
         in_path = Path(args.input)
@@ -167,11 +242,26 @@ def main():
             print(f"saved_raw_log={raw_path}")
 
     rows = parse_lines(lines)
+    append_trajectory(rows)
+
+    if rows:
+        theta_values = [abs(row["angle_err_rad"]) for row in rows]
+        nonzero_theta_count = sum(1 for value in theta_values if value > 1e-9)
+        max_abs_theta = max(theta_values)
+    else:
+        nonzero_theta_count = 0
+        max_abs_theta = 0.0
 
     write_csv(out_path, rows)
+    write_matlab_distance_theta(matlab_out_path, rows)
 
     print(f"parsed_rows={len(rows)}")
+    print(f"nonzero_theta_rows={nonzero_theta_count}")
+    print(f"max_abs_theta_rad={max_abs_theta:.9f}")
+    if len(rows) > 0 and nonzero_theta_count == 0:
+        print("WARNING: all theta values are zero. Check firmware AngleErr(rad) output and IMU data path.")
     print(f"output_csv={out_path}")
+    print(f"output_matlab_txt={matlab_out_path}")
 
 
 if __name__ == "__main__":

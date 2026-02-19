@@ -4,7 +4,7 @@
 #include "main.h"
 #include "flash2.h"
 
-// ログデータを格納する構造体
+// 既存詳細ログ（現在は停止中。互換のため定義は残す）
 typedef struct
 {
     float distance_from_start_m;
@@ -17,6 +17,13 @@ typedef struct
     float angle_error_rad; // 10mm区間で積算した角度誤差[rad]
 } LogData_t;
 
+// 現在運用中の軽量ログ
+typedef struct
+{
+    float distance_from_start_m;
+    float angle_error_rad;
+} CompactLogData_t;
+
 // Flashメモリのログ領域設定（STM32F405RGを想定）
 // Flashメモリマップを参照し、未使用のセクタを指定してください。
 // Sector 11（アドレス 0x080E0000、128KB）- プログラム領域から最も離れた安全な位置
@@ -26,6 +33,7 @@ typedef struct
 
 // グローバル変数のextern宣言
 extern uint16_t dc; // ログエントリ数のカウンタ
+extern uint16_t compact_dc;
 
 // 関数プロトタイプ宣言
 void Log_Init(void);

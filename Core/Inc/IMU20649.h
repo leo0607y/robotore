@@ -17,10 +17,12 @@ extern volatile int16_t 	xa, ya, za; // 加速度(16bitデータ)
 extern volatile int16_t 	xg, yg, zg;	//  角加速度(16bitデータ)
 
 extern float zg_offset; // Z軸角速度のオフセット補正値 (Raw Value)
+extern float imu_gyro_lsb_per_dps_runtime;
+extern float imu_accel_lsb_per_g_runtime;
 void IMU_CalibrateGyro(void); // ジャイロキャリブレーション関数のプロトタイプ宣言
 
-// Gyro sensitivity for +/-2000 dps range
-#define GYRO_SENS_LSB_PER_DPS 16.4f
+// Gyro sensitivity (current setting)
+#define GYRO_SENS_LSB_PER_DPS 8.2f
 
 // Accel sensitivity for current ACCEL_CONFIG (0x14 = 0x06)
 // ICM20649ではFS_SEL=3は±30g相当（約1024 LSB/g）
@@ -32,6 +34,8 @@ void IMU_CalibrateGyro(void); // ジャイロキャリブレーション関数�
 uint8_t read_byte( uint8_t );
 void write_byte( uint8_t, uint8_t);
 uint8_t IMU_Init(void);
+float IMU_GetGyroLsbPerDps(void);
+float IMU_GetAccelLsbPerG(void);
 void read_gyro_data(void);
 void read_accel_data(void);
 
