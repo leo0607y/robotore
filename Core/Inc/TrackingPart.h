@@ -27,6 +27,7 @@ bool getUnableToRunFlag(void);
 void debugmotor(float, float);
 
 extern float tracking_term;
+extern float diff;
 
 void setTarget(float speed);
 float getTarget(void);

@@ -47,7 +47,7 @@ void ControlLineTracking(void)
 	//	float kp = 0.0072;
 	//	float kd = 0.00013;
 	float kp = 0.005;	 // 2.4m/s
-	float kd = 0.000012; // 2.4m/s
+	float kd = 0.000048; // 2.4m/s
 	//	float kp = 0.018;	// 2.6m/s
 	//	float kd = 0.00008; // 2.6m/s
 
@@ -83,7 +83,7 @@ void ControlLineTracking(void)
 		// カーブ時は左右速度差を増幅して大回りに（R10対策）
 		if (abs_diff >= STRAIGHT_DIFF_THRESHOLD)
 		{
-			tracking_term *= 1.3; // カーブ時は30%増幅
+			tracking_term *= 0.88; // カーブ時は30%減衰
 		}
 
 		pre_diff = diff;
@@ -193,7 +193,7 @@ void CourseOut(void)
 		bool all_sensors_high = true;
 		for (int i = 0; i < 12; i++)
 		{
-			if (sensor[i] <= 500)
+			if (sensor[i] <= 650)
 			{
 				all_sensors_high = false;
 				break;

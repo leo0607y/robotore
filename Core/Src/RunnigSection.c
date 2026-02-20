@@ -11,6 +11,7 @@
 #define CROSS_CENTER_SENSOR_END 9
 #define CROSS_CENTER_SENSOR_THRESHOLD 500
 #define CROSS_GUARD_TIME_MS 300U
+#define SHARP_CURVE_DIFF_THRESHOLD 300.0f
 
 uint16_t velocity_table_idx;
 uint16_t mode;
@@ -71,6 +72,17 @@ void S_Sensor()
 	{
 		bool rising_edge_r = (!prev_side_sensor_r_global && side_sensor_r);
 		uint32_t current_time = HAL_GetTick();
+
+		// 急カーブ中（diff大）はゴール判定を無視
+		if (fabsf(diff) >= SHARP_CURVE_DIFF_THRESHOLD)
+		{
+			if (Marker_State == 2)
+			{
+				Marker_State = 1;
+			}
+			prev_side_sensor_r_global = side_sensor_r;
+			return;
+		}
 
 		// 中心8センサが同時にライン上（低値）を検出したらクロスと判定し、一定時間ゴール判定を無視
 		bool center8_all_on_line = true;
