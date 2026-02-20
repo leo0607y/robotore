@@ -10,8 +10,8 @@
 #define CROSS_CENTER_SENSOR_START 2
 #define CROSS_CENTER_SENSOR_END 9
 #define CROSS_CENTER_SENSOR_THRESHOLD 500
-#define CROSS_GUARD_TIME_MS 300U
-#define SHARP_CURVE_DIFF_THRESHOLD 300.0f
+#define CROSS_GUARD_TIME_MS 450U
+#define LEFT_MARKER_GUARD_DISTANCE_M 0.05f
 
 uint16_t velocity_table_idx;
 uint16_t mode;
@@ -28,14 +28,18 @@ extern int lion, bayado;
 
 // S_Sensorの静的変数（グローバルスコープに移動してリセット可能にする）
 static bool prev_side_sensor_r_global = false;
+static bool prev_side_sensor_l_global = false;
 static uint32_t start_passed_time_global = 0;
 static uint32_t cross_ignore_until_ms = 0;
+static float left_marker_ignore_end_distance_m = 0.0f;
 
 void Reset_S_Sensor_State(void)
 {
 	prev_side_sensor_r_global = false;
+	prev_side_sensor_l_global = false;
 	start_passed_time_global = 0;
 	cross_ignore_until_ms = 0;
+	left_marker_ignore_end_distance_m = 0.0f;
 }
 
 void Fan_Ctrl(void)
@@ -68,20 +72,19 @@ void S_Sensor()
 			start_passed_time_global = HAL_GetTick(); // スタート時刻を保存
 		}
 	}
-	else if (Start_Flag && !Stop_Flag && !is_on_tracking_curve)
+	else if (Start_Flag && !Stop_Flag)
 	{
 		bool rising_edge_r = (!prev_side_sensor_r_global && side_sensor_r);
+		bool rising_edge_l = (!prev_side_sensor_l_global && side_sensor_l);
 		uint32_t current_time = HAL_GetTick();
+		float current_distance_m = getTotalDistance();
 
-		// 急カーブ中（diff大）はゴール判定を無視
-		if (fabsf(diff) >= SHARP_CURVE_DIFF_THRESHOLD)
+		if (rising_edge_l)
 		{
-			if (Marker_State == 2)
+			if (current_distance_m >= left_marker_ignore_end_distance_m)
 			{
-				Marker_State = 1;
+				left_marker_ignore_end_distance_m = current_distance_m + LEFT_MARKER_GUARD_DISTANCE_M;
 			}
-			prev_side_sensor_r_global = side_sensor_r;
-			return;
 		}
 
 		// 中心8センサが同時にライン上（低値）を検出したらクロスと判定し、一定時間ゴール判定を無視
@@ -107,7 +110,12 @@ void S_Sensor()
 		bool cross_guard_active = (current_time < cross_ignore_until_ms);
 		if (cross_guard_active)
 		{
+			if (Marker_State == 2)
+			{
+				Marker_State = 1;
+			}
 			prev_side_sensor_r_global = side_sensor_r;
+			prev_side_sensor_l_global = side_sensor_l;
 			return;
 		}
 
@@ -119,17 +127,14 @@ void S_Sensor()
 
 		if (Marker_State == 2 && side_sensor_l)
 		{
-			uint32_t dt = current_time - RightDetectedTime;
-			if (dt <= 100)
-			{
-				Marker_State = 1; // 交差ラインなのでキャンセル
-			}
+			Marker_State = 1; // ゴール候補中に左センサ反応→クロス扱いでキャンセル
 		}
 
 		if (Marker_State == 2)
 		{
 			uint32_t dt = current_time - RightDetectedTime;
-			if (dt > 100)
+			bool left_marker_guard_active = (current_distance_m < left_marker_ignore_end_distance_m);
+			if (dt > 100 && !side_sensor_l && !left_marker_guard_active)
 			{
 				// ★★★ 緊急停止：最優先でモーターを停止 ★★★
 
@@ -152,4 +157,5 @@ void S_Sensor()
 	}
 
 	prev_side_sensor_r_global = side_sensor_r;
+	prev_side_sensor_l_global = side_sensor_l;
 }

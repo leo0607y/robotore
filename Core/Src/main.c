@@ -435,7 +435,7 @@ int main(void)
 			FanMotor(4000);
 			if (timer2 >= 6000)
 			{
-				setTarget(3.0);
+				setTarget(2.9);
 				startTracking(); // cyan
 				S_Sensor();
 

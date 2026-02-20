@@ -14,7 +14,7 @@
 // 計算例: e=0.2時、PWM = 730*0.2 + 70*15 = 146+1050 = 1196
 // 安全対策: PWM±1599クリッピング + Watchdog(1.5秒)で完全保護
 #define KP 1000.0f
-#define KI 220.0f
+#define KI 250.0f
 
 float SpeedControl(float target_velocity, float current_velocity, float *integral)
 {

@@ -48,8 +48,8 @@ void ControlLineTracking(void)
 	static float i;
 	//	float kp = 0.0072;
 	//	float kd = 0.00013;
-	float kp = 0.0051;	 // 2.4m/s
-	float kd = 0.000049; // 2.4m/s
+	float kp = 0.0079;	 // 2.4m/s
+	float kd = 0.00005; // 2.4m/s
 	//	float kp = 0.018;	// 2.6m/s
 	//	float kd = 0.00008; // 2.6m/s
 
@@ -85,7 +85,7 @@ void ControlLineTracking(void)
 		// カーブ時は左右速度差を増幅して大回りに（R10対策）
 		if (abs_diff >= STRAIGHT_DIFF_THRESHOLD)
 		{
-			tracking_term *= 0.7; // カーブ時は30%減衰
+			tracking_term *= 0.8; // カーブ時は30%減衰
 		}
 
 		pre_diff = diff;
