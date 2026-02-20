@@ -4,7 +4,9 @@
 #include <math.h>
 
 #define DELTA_T 0.001
-#define STRAIGHT_DIFF_THRESHOLD 100.0f
+#define STRAIGHT_DIFF_THRESHOLD 95.0f
+#define CURVE_SPEED_LIMIT_MODE 5
+#define CURVE_SPEED_LIMIT_MPS 2.1f
 
 int8_t trace_flag;
 static uint8_t i_clear_flag;
@@ -46,8 +48,8 @@ void ControlLineTracking(void)
 	static float i;
 	//	float kp = 0.0072;
 	//	float kd = 0.00013;
-	float kp = 0.005;	 // 2.4m/s
-	float kd = 0.000048; // 2.4m/s
+	float kp = 0.0051;	 // 2.4m/s
+	float kd = 0.000049; // 2.4m/s
 	//	float kp = 0.018;	// 2.6m/s
 	//	float kd = 0.00008; // 2.6m/s
 
@@ -83,7 +85,7 @@ void ControlLineTracking(void)
 		// カーブ時は左右速度差を増幅して大回りに（R10対策）
 		if (abs_diff >= STRAIGHT_DIFF_THRESHOLD)
 		{
-			tracking_term *= 0.88; // カーブ時は30%減衰
+			tracking_term *= 0.7; // カーブ時は30%減衰
 		}
 
 		pre_diff = diff;
@@ -119,6 +121,12 @@ void TraceFlip(void)
 		float current_speed_right = 0.0;
 		getCurrentVelocity(&current_speed_left, &current_speed_right);
 		float TargetSpeed = getTarget();
+		float effective_target_speed = TargetSpeed;
+
+		if (bayado == CURVE_SPEED_LIMIT_MODE && is_on_tracking_curve && effective_target_speed > CURVE_SPEED_LIMIT_MPS)
+		{
+			effective_target_speed = CURVE_SPEED_LIMIT_MPS;
+		}
 
 		// 理想的な中心速度制御：
 		// 各モーターの目標速度を設定し、平均がTargetになるようにする
@@ -126,8 +134,8 @@ void TraceFlip(void)
 		// 右目標 = Target + tracking_term
 		// → (左目標 + 右目標) / 2 = Target が保証される
 
-		float target_speed_left = TargetSpeed - tracking_term;
-		float target_speed_right = TargetSpeed + tracking_term;
+		float target_speed_left = effective_target_speed - tracking_term;
+		float target_speed_right = effective_target_speed + tracking_term;
 
 		// 各モーターを目標速度に追従させるPI制御
 		float speed_pi_output_left = SpeedControl(target_speed_left,
